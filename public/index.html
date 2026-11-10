@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Konnected House Design Studio</title>
+<link rel="icon" href="/brand/kmp-mark.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&display=swap">
+<link rel="stylesheet" href="/css/site.css">
+</head><body>
+
+<main class="panel login" id="login" hidden>
+  <div class="word"><b>Konnected House</b><small>Design Studio</small></div>
+  <form id="loginForm" style="display:flex;flex-direction:column;gap:14px">
+    <label class="f">Email<input type="email" id="email" autocomplete="username" required></label>
+    <label class="f">Password<input type="password" id="password" autocomplete="current-password" required></label>
+    <button class="btn primary" type="submit">Sign in</button>
+  </form>
+  <button class="link" id="setPw" type="button" style="align-self:flex-start">First time here, or forgot your password?</button>
+  <p class="msg" id="loginMsg" role="status"></p>
+</main>
+
+<main class="panel login" id="noAccess" hidden>
+  <div class="word"><b>Konnected House</b><small>Design Studio</small></div>
+  <p>You're signed in as <b id="naEmail"></b>, but that email isn't on the team yet. Ask an admin to add you.</p>
+  <button class="btn" data-kh-out type="button">Sign out</button>
+</main>
+
+<div class="wrap" id="home" hidden>
+  <header class="top">
+    <div class="word"><b>Konnected House</b><small>Design Studio</small></div>
+    <nav class="kh-nav" id="khNav" aria-label="Site"></nav>
+  </header>
+
+  <h1 id="hello">Welcome</h1>
+  <p class="lead">Pick a studio to design, or see what's going out over the next two weeks.</p>
+
+  <h2>Studios</h2>
+  <div class="studios" id="studios"></div>
+
+  <h2>Coming up · next 14 days</h2>
+  <div class="panel sched" id="sched"><div class="day"><span class="empty">Loading…</span></div></div>
+</div>
+
+<script type="module" src="/js/home.js"></script>
+</body></html>

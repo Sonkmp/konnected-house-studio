@@ -1,0 +1,60 @@
+rules_version = '2';
+
+// Who can do what. The site's buttons follow the same rules (public/js/kh.js → can),
+// but these are what actually protect the data.
+//
+//   admin        everything, including the team list
+//   designer     edit carousels and reel covers
+//   smm          edit reel covers; on carousels only mark them posted (status/caption)
+//   contributor  edit reel covers (titles and hooks)
+//   viewer       read only
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function me() { return /databases/$(database)/documents/members/$(request.auth.token.email.lower()); }
+    function member() { return request.auth != null && request.auth.token.email != null && exists(me()); }
+    function role() { return get(me()).data.role; }
+    function isAdmin() { return member() && role() == 'admin'; }
+    function designs() { return member() && role() in ['admin', 'designer']; }
+    function reels() { return member() && role() in ['admin', 'designer', 'smm', 'contributor']; }
+    function fmt(data) { return data.get('format', 'carousel'); }
+
+    match /members/{email} {
+      allow read: if member();
+      allow write: if isAdmin();
+    }
+
+    match /studios/{studio} {
+      allow read: if member();
+      allow write: if isAdmin();
+
+      match /posts/{id} {
+        allow read: if member();
+        allow create: if designs() || (reels() && fmt(request.resource.data) == 'reel');
+        allow update: if designs()
+          || (reels() && fmt(resource.data) == 'reel' && fmt(request.resource.data) == 'reel')
+          || (member() && role() == 'smm'
+              && request.resource.data.diff(resource.data).affectedKeys()
+                   .hasOnly(['status', 'caption', 'postedAt', 'postedBy', 'updatedAt']));
+        allow delete: if designs() || (reels() && fmt(resource.data) == 'reel');
+      }
+
+      match /presets/{key} {
+        allow read: if member();
+        allow write: if designs() || (reels() && key == 'reel');
+      }
+
+      // Photos: one record per photo plus its chunks. Photos are never edited, only added.
+      match /assets/{id} {
+        allow read: if member();
+        allow create: if reels();
+        allow delete: if designs();
+        match /chunks/{n} {
+          allow read: if member();
+          allow create: if reels();
+          allow delete: if designs();
+        }
+      }
+    }
+  }
+}

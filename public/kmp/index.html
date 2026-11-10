@@ -1,0 +1,1626 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>KMP Studio · Konnected House</title>
+<meta name="kh-studio" content="kmp">
+<link rel="icon" href="/brand/kmp-mark.png">
+<link rel="stylesheet" href="/css/studio-nav.css">
+<script src="/js/kh-boot.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo+Black&family=Bebas+Neue&family=League+Gothic&family=Oswald:wght@500;600;700&family=Poppins:wght@600;700;800;900&family=DM+Serif+Display:ital@0;1&family=Fraunces:ital,opsz,wght@1,9..144,800&family=Instrument+Serif:ital@0;1&family=Montserrat:wght@400;500;600;700;800;900&display=swap">
+<style>
+/* Layout: three-pane studio (posts · slide stage · inspector), stacking to one column on phones.
+   One deliberate dark look: the studio sits back so the slide colours read true. */
+:root{
+  color-scheme: dark;
+  --bg:#080A1A;
+  --panel:#0F1229;
+  --panel-2:#161A3A;
+  --field:#0B0E22;
+  --line:rgba(196,208,255,.10);
+  --line-2:rgba(196,208,255,.20);
+  --fg:#ECEEF8;
+  --muted:#9097B8;
+  --dim:#626A8E;
+  --brand:#4CA4C6;
+  --brand-ink:#05131B;
+  --ok:#46C001;
+  --warn:#F2B84B;
+  --bad:#FF7A7A;
+  --ui:"Montserrat", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --serif:"Instrument Serif", Georgia, "Times New Roman", serif;
+  --r:10px;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{background:var(--bg)}
+body{color:var(--fg);font-family:var(--ui);font-size:14px;line-height:1.45}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+
+.app{display:flex;flex-direction:column;gap:14px;min-height:100%;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));
+  padding-right:max(16px, env(safe-area-inset-right, 0px));
+  padding-block:14px 40px}
+
+/* top bar */
+.top{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:12px;min-width:0}
+.brand img{height:26px;width:auto;display:block}
+.brand .wordmark{display:flex;flex-direction:column;line-height:1.1}
+.brand b{font-weight:800;font-size:15px;letter-spacing:.01em}
+.brand small{color:var(--muted);font-size:11px;letter-spacing:.14em;text-transform:uppercase;font-weight:600}
+.save{margin-left:auto;display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12.5px;font-weight:500}
+.save i{width:8px;height:8px;border-radius:50%;background:var(--dim);display:inline-block}
+.save[data-s="ok"] i{background:var(--ok)}
+.save[data-s="busy"] i{background:var(--warn)}
+.save[data-s="bad"] i{background:var(--bad)}
+
+.work{display:grid;grid-template-columns:250px minmax(0,1fr) 350px;gap:14px;align-items:start}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;min-width:0}
+@media (max-width:1220px){.work{grid-template-columns:200px minmax(0,1fr) 330px}}
+@media (max-width:820px){.work{grid-template-columns:minmax(0,1fr)}}
+
+
+/* posts list */
+.posts{padding:12px;display:flex;flex-direction:column;gap:10px}
+.posts-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.eyebrow{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.post-list{display:flex;flex-direction:column;gap:2px;max-height:70vh;overflow:auto}
+@media (max-width:820px){.post-list{max-height:none;flex-direction:row;overflow-x:auto;padding-bottom:4px}.post-item{min-width:210px}}
+.week{font-size:11px;color:var(--dim);font-weight:600;padding:10px 8px 4px;letter-spacing:.06em;text-transform:uppercase}
+.post-item{display:grid;grid-template-columns:10px minmax(0,1fr) auto;gap:10px;align-items:center;text-align:left;
+  background:transparent;border:0;border-radius:9px;padding:9px 10px}
+.post-item:hover{background:var(--panel-2)}
+.post-item[aria-current="true"]{background:var(--panel-2);box-shadow:inset 0 0 0 1px var(--line-2)}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--c);box-shadow:0 0 0 3px color-mix(in srgb, var(--c) 18%, transparent)}
+.pi-main{display:flex;flex-direction:column;min-width:0}
+.pi-date{font-size:11.5px;color:var(--muted);font-weight:600}
+.pi-title{font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pi-meta{font-size:11px;color:var(--dim);font-variant-numeric:tabular-nums;white-space:nowrap}
+.chip-st{font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:99px;border:1px solid var(--line-2);color:var(--muted)}
+.chip-st[data-s="ready"]{color:var(--brand);border-color:color-mix(in srgb,var(--brand) 50%,transparent)}
+.chip-st[data-s="reel"]{color:var(--fg);border-color:var(--line-2);background:var(--panel-2)}
+.chip-st[data-s="posted"]{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 50%,transparent)}
+.newform{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:10px;background:var(--panel-2);border-radius:10px}
+.newform .full{grid-column:1 / -1}
+
+/* buttons & fields */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid var(--line-2);background:var(--panel-2);
+  border-radius:9px;padding:8px 12px;font-weight:600;font-size:13px;white-space:nowrap}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--brand);color:var(--brand-ink);border-color:transparent}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.ghost{background:transparent}
+.btn.danger{color:var(--bad)}
+.btn.sm{padding:5px 9px;font-size:12px}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+.link{background:none;border:0;padding:0;color:var(--brand);font-weight:600;font-size:12px}
+label.f{display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--muted);font-weight:600;min-width:0}
+input[type=text],input[type=date],select,textarea{background:var(--field);border:1px solid var(--line-2);border-radius:8px;padding:8px 10px;
+  color:var(--fg);font-size:13.5px;font-weight:500;width:100%;min-width:0}
+textarea{resize:vertical;line-height:1.4}
+input[type=range]{width:100%;accent-color:var(--brand)}
+input[type=color]{width:34px;height:30px;border:1px solid var(--line-2);border-radius:7px;background:var(--field);padding:2px}
+
+/* stage */
+.stage{padding:14px;display:flex;flex-direction:column;gap:14px}
+.post-head{display:flex;flex-direction:column;gap:10px}
+.title-input{font-size:20px!important;font-weight:700!important;background:transparent!important;border-color:transparent!important;padding:4px 6px!important}
+.title-input:hover{border-color:var(--line-2)!important}
+.meta-row{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr) minmax(0,1fr);gap:10px}
+@media (max-width:560px){.meta-row{grid-template-columns:1fr 1fr}.meta-row .f:first-child{grid-column:1 / -1}}
+.viewer{display:grid;grid-template-columns:44px minmax(0,1fr) 44px;align-items:center;gap:10px}
+.canvas-wrap{justify-self:center;width:100%;max-width:500px;position:relative}
+#preview{display:block;width:100%;height:auto;border-radius:6px;background:#000;
+  box-shadow:0 30px 60px -30px rgba(0,0,0,.8),0 0 0 1px var(--line);touch-action:none}
+#preview.draggable{cursor:grab}
+#preview.dragging{cursor:grabbing}
+.nav{width:44px;height:44px;border-radius:50%;border:1px solid var(--line-2);background:var(--panel-2);font-size:22px;line-height:1;display:grid;place-items:center}
+.nav[disabled]{opacity:.3}
+.viewer-foot{display:flex;justify-content:center;gap:14px;color:var(--muted);font-size:12px;flex-wrap:wrap;text-align:center}
+.strip{display:flex;gap:10px;overflow-x:auto;padding:4px 2px 8px}
+.thumb{flex:0 0 auto;display:flex;flex-direction:column;gap:5px;align-items:center;background:none;border:0;padding:0;color:var(--muted);font-size:11px;font-weight:600;font-variant-numeric:tabular-nums}
+.thumb canvas{width:86px;height:auto;border-radius:4px;display:block;box-shadow:0 0 0 1px var(--line)}
+.thumb[aria-current="true"] canvas{box-shadow:0 0 0 2px var(--brand)}
+.thumb[aria-current="true"]{color:var(--fg)}
+.add-slide{flex:0 0 auto;width:86px;aspect-ratio:1080/1350;border:1px dashed var(--line-2);border-radius:4px;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:6px;color:var(--muted);font-size:11.5px;font-weight:600;background:transparent;padding:6px;text-align:center}
+.add-slide select{font-size:11px;padding:4px;border-radius:6px}
+.actions{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;align-items:center}
+.actions .hint{margin-right:auto;color:var(--dim);font-size:12px}
+.banner{border:1px solid color-mix(in srgb,var(--warn) 45%,transparent);background:color-mix(in srgb,var(--warn) 9%,transparent);color:var(--fg);
+  border-radius:10px;padding:10px 12px;font-size:12.5px}
+
+.empty-stage{display:flex;flex-direction:column;align-items:flex-start;gap:12px;padding:28px 10px;max-width:520px}
+.empty-stage h2{margin:0;font-size:22px;font-weight:800;text-wrap:balance}
+.empty-stage p{margin:0;color:var(--muted)}
+
+/* inspector */
+.inspector{padding:0;display:flex;flex-direction:column}
+.tabs{display:flex;border-bottom:1px solid var(--line)}
+.tabs button{flex:1;background:none;border:0;padding:12px;font-weight:700;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);border-bottom:2px solid transparent}
+.tabs button[aria-selected="true"]{color:var(--fg);border-bottom-color:var(--brand)}
+.insp-body{padding:14px;display:flex;flex-direction:column;gap:16px}
+.grp{display:flex;flex-direction:column;gap:10px}
+.grp h3{margin:0;font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.grp + .grp{border-top:1px solid var(--line);padding-top:16px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.seg{display:flex;flex-wrap:wrap;gap:4px;background:var(--field);border:1px solid var(--line-2);border-radius:9px;padding:3px}
+.seg button{flex:1 1 auto;border:0;background:transparent;border-radius:7px;padding:6px 8px;font-size:12px;font-weight:600;color:var(--muted)}
+.seg button.on{background:var(--panel-2);color:var(--fg);box-shadow:0 0 0 1px var(--line-2)}
+.count{font-size:11.5px;color:var(--dim);font-weight:600;font-variant-numeric:tabular-nums;align-self:flex-end}
+.count.over{color:var(--warn)}
+.help{font-size:12px;color:var(--dim);margin:0}
+.help code{font-family:inherit;color:var(--muted);background:var(--field);padding:0 4px;border-radius:4px}
+.picker{display:flex;flex-direction:column;gap:8px;background:var(--field);border:1px solid var(--line);border-radius:10px;padding:10px}
+.pk-head{display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:700;color:var(--fg)}
+.drop{display:grid;place-items:center;min-height:86px;border:1px dashed var(--line-2);border-radius:8px;color:var(--muted);font-size:12.5px;
+  cursor:pointer;overflow:hidden;text-align:center;padding:8px}
+.drop.has{padding:0;min-height:0;border-style:solid}
+.drop.has img{display:block;width:100%;height:120px;object-fit:cover}
+.drop.over{border-color:var(--brand);background:color-mix(in srgb,var(--brand) 8%,transparent)}
+.lib{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px}
+.lib button{flex:0 0 auto;padding:0;border:1px solid var(--line-2);border-radius:6px;overflow:hidden;background:none;width:46px;height:46px}
+.lib button.on{border-color:var(--brand);box-shadow:0 0 0 1px var(--brand)}
+.lib img{width:100%;height:100%;object-fit:cover;display:block}
+.sl{display:grid;grid-template-columns:62px minmax(0,1fr);gap:8px;align-items:center;font-size:12px;color:var(--muted);font-weight:600}
+.swatches{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.sw{width:26px;height:26px;border-radius:7px;border:1px solid var(--line-2);background:var(--c);padding:0}
+.sw.on{box-shadow:0 0 0 2px var(--fg)}
+.toggle{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--fg)}
+.toggle input{width:16px;height:16px;accent-color:var(--brand)}
+.slide-actions{display:flex;flex-wrap:wrap;gap:8px}
+label.btn{cursor:pointer}
+.fmt{display:flex;gap:6px;flex-wrap:wrap}
+.font-pick{display:grid;grid-template-columns:repeat(2, minmax(0,1fr))}
+.font-pick button{font-size:14px;color:var(--fg)}
+.tpl-grid{display:grid;grid-template-columns:repeat(3, minmax(0,1fr));gap:8px}
+.tpl{display:flex;flex-direction:column;gap:5px;background:var(--field);border:1px solid var(--line-2);border-radius:9px;padding:5px;color:var(--muted);font-size:11px;font-weight:700;text-align:center}
+.tpl canvas{width:100%;height:auto;aspect-ratio:3/4;border-radius:5px;display:block}
+.tpl.on{border-color:var(--brand);color:var(--fg);box-shadow:0 0 0 1px var(--brand)}
+.fmt .btn{font-weight:600}
+.pk-actions{display:flex;gap:8px;flex-wrap:wrap}
+.photo-bar{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.pb-item{display:flex;align-items:center;gap:8px;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:6px 8px}
+.pb-item img,.pb-empty{width:34px;height:42px;object-fit:cover;border-radius:5px;display:block;background:var(--field)}
+.pb-empty{border:1px dashed var(--line-2)}
+.pb-l{font-size:12px;font-weight:700;color:var(--muted)}
+
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(18px + env(safe-area-inset-bottom, 0px));
+  background:var(--panel-2);border:1px solid var(--line-2);color:var(--fg);padding:10px 14px;border-radius:10px;font-size:13px;font-weight:500;
+  box-shadow:0 18px 40px -12px rgba(0,0,0,.7);max-width:calc(100% - 32px);z-index:20}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+/* wider screens: the page stays put and each column scrolls on its own, so the slide stays in view while you edit */
+@media (min-width:821px){
+  html, body{height:100%}
+  .app{height:100%;overflow:hidden;padding-block:14px}
+  .work{flex:1 1 auto;min-height:0;align-items:stretch}
+  .posts, .stage{min-height:0;overflow-y:auto;overscroll-behavior:contain}
+  .stage > *, .posts > *{flex-shrink:0}
+  .post-list{flex-shrink:1;min-height:0}
+  .post-list{max-height:none}
+  .inspector{min-height:0;overflow:hidden}
+  .insp-body{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain}
+  .canvas-wrap{max-width:min(500px, max(280px, calc((100vh - 560px) * .8)))}
+}
+</style>
+
+</head><body>
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <img src="/brand/kmp-logo-full.png" alt="Konnected Minds">
+      <span class="wordmark"><b>Carousel Studio</b><small>Carousels · Reel covers</small></span>
+    </div>
+    <nav class="kh-nav" id="khNav" aria-label="Studios"></nav>
+    <div class="save" id="saveState" data-s="busy" role="status"><i></i><span>Connecting…</span></div>
+  </header>
+
+  <div id="banner"></div>
+
+  <main class="work">
+    <aside class="panel posts" aria-label="Posts">
+      <div class="posts-head">
+        <div class="seg kh-fmt" id="fmtSeg" role="tablist" aria-label="Format"><button type="button" role="tab" data-fmt="carousel" class="on" aria-selected="true">Carousels</button><button type="button" role="tab" data-fmt="reel" aria-selected="false">Reel covers</button></div>
+        <button class="btn sm" id="newPostBtn" aria-expanded="false">+ New</button>
+      </div>
+      <form class="newform" id="newForm" hidden>
+        <label class="f full">Pillar
+          <select id="newDay"></select>
+        </label>
+        <label class="f full">Post date
+          <input type="date" id="newDate">
+        </label>
+        <button class="btn primary full" type="submit">Create from template</button>
+      </form>
+      <div class="post-list" id="postList"></div>
+    </aside>
+
+    <section class="panel stage" id="stage" aria-label="Slides"></section>
+
+    <aside class="panel inspector" aria-label="Settings">
+      <div class="tabs" role="tablist">
+        <button role="tab" id="tabSlide" aria-selected="true">Slide</button>
+        <button role="tab" id="tabPost" aria-selected="false">Post</button>
+      </div>
+      <div class="insp-body" id="insp"></div>
+    </aside>
+  </main>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>
+(() => {
+"use strict";
+
+/* ---------- constants ---------- */
+const W = 1080, MARGIN = 100;
+let H = 1350;
+const postH = p => p && p.format === "reel" ? 1440 : 1350;
+let M = MARGIN, SAFE_B = 160, IS_REEL = false; // side margin and bottom safe zone, set per post in drawSlide
+const LOGO_FULL_SRC = "/brand/kmp-logo-full.png";
+const LOGO_MARK_SRC = "/brand/kmp-mark.png";
+
+const BRAND = [
+  {n:"White", c:"#FFFFFF"}, {n:"KMP Blue", c:"#4CA4C6"}, {n:"KMP Teal", c:"#2385A8"},
+  {n:"KMP Indigo", c:"#27274D"}, {n:"KMP Midnight", c:"#0A0D24"},
+  {n:"KH Sky", c:"#A5E6FE"}, {n:"KH Green", c:"#46C001"}, {n:"KH Dark Green", c:"#3BA101"}, {n:"KH Navy", c:"#002B5B"}
+];
+
+const DAYS = {
+  mon:{short:"Mon", name:"Monday",    pillar:"The Hot Reel",       accent:"#A5E6FE", hi:"#A5E6FE", base:"#0A0D24",
+       cta:"Comment *EPISODE* for the full episode"},
+  tue:{short:"Tue", name:"Tuesday",   pillar:"Money Truths",       accent:"#46C001", hi:"#46C001", base:"#0A0D24",
+       cta:"Save this for *payday*."},
+  wed:{short:"Wed", name:"Wednesday", pillar:"The Playbook",       accent:"#2385A8", hi:"#4CA4C6", base:"#002B5B",
+       cta:"Comment *PLAYBOOK* for the full episode"},
+  thu:{short:"Thu", name:"Thursday",  pillar:"From Nothing",       accent:"#FFFFFF", hi:"#FFFFFF", base:"#27274D", bw:true,
+       cta:"Send this to someone who needs to *keep going*."},
+  fri:{short:"Fri", name:"Friday",    pillar:"Love, Life & Money", accent:"#4CA4C6", hi:"#4CA4C6", base:"#27274D",
+       cta:"Send this to the person you're *building with*."},
+  sat:{short:"Sat", name:"Saturday",  pillar:"Weekend Watchlist",  accent:"#3BA101", hi:"#46C001", base:"#002B5B",
+       cta:"Save this for the *weekend*."},
+  sun:{short:"Sun", name:"Sunday",    pillar:"The Episode in Slides", accent:"#4CA4C6", hi:"#4CA4C6", base:"#0A0D24",
+       cta:"Comment *FULL* and we'll send you the episode."}
+};
+const DAY_ORDER = ["mon","tue","wed","thu","fri","sat","sun"];
+const LAYOUTS = {photo:"Photo + text", split:"Two stills", step:"Big number", cta:"Closing CTA"};
+const STATUS = {draft:"Draft", ready:"Ready", posted:"Posted"};
+
+/* ---------- small utils ---------- */
+const $ = (s, r=document) => r.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const uid = () => Math.random().toString(36).slice(2, 10);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const pad2 = n => String(n).padStart(2, "0");
+const clone = o => JSON.parse(JSON.stringify(o));
+function hexRGB(h){ h = String(h||"#000").replace("#",""); if (h.length===3) h = h.split("").map(c=>c+c).join(""); const n = parseInt(h,16)||0; return [(n>>16)&255,(n>>8)&255,n&255]; }
+function hexA(h, a){ const [r,g,b] = hexRGB(h); return `rgba(${r},${g},${b},${a})`; }
+function mix(a, b, t){ const A = hexRGB(a), B = hexRGB(b); return "#" + A.map((v,i)=>Math.round(v+(B[i]-v)*t).toString(16).padStart(2,"0")).join(""); }
+function lum(h){ const c = hexRGB(h).map(v=>{v/=255; return v<=0.03928? v/12.92 : Math.pow((v+0.055)/1.055,2.4);}); return 0.2126*c[0]+0.7152*c[1]+0.0722*c[2]; }
+const inkFor = h => lum(h) > 0.4 ? "#0A0D24" : "#FFFFFF";
+function words(s){ return String(s||"").replace(/[*="“”]/g,"").trim().split(/\s+/).filter(Boolean).length; }
+function fmtDate(iso){ if(!iso) return "No date"; const d = new Date(iso+"T12:00:00"); if (isNaN(d)) return iso;
+  return d.toLocaleDateString("en-GB",{weekday:"short", day:"numeric", month:"short"}); }
+function weekOf(iso){ const d = new Date(iso+"T12:00:00"); if (isNaN(d)) return "Undated"; const day=(d.getDay()+6)%7; d.setDate(d.getDate()-day);
+  return "Week of " + d.toLocaleDateString("en-GB",{day:"numeric", month:"short"}); }
+function todayISO(){ const d=new Date(); return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`; }
+function slug(s){ return String(s||"").toLowerCase().replace(/[*"“”']/g,"").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,40) || "slide"; }
+
+/* ---------- state ---------- */
+const state = {
+  posts: new Map(), presets: {}, currentId: null, slideIdx: 0, tab: "slide",
+  mode: "loading", db: null, assets: null, downloads: null,
+  dirty: new Set(), saving: new Set(), readOnly: false, saveError: false, stale: false,
+  confirm: null, fmt: "carousel"
+};
+const cur = () => state.posts.get(state.currentId) || null;
+const curSlide = () => { const p = cur(); return p ? p.slides[state.slideIdx] || null : null; };
+
+/* ---------- slide model ---------- */
+function S(o){
+  return Object.assign({
+    id: uid(), layout: "photo", textOnly: false, isCover: false, hideLabel: false,
+    tag: "", headline: "", sub: "", chip: {name:"", title:""}, chipPos: "above",
+    img: null, fx: .5, fy: .3, zoom: 1,
+    img2: null, fx2: .5, fy2: .3, zoom2: 1,
+    tag2: "", text2: "", num: "", handle: "@konnectedminds",
+    bw: null, scale: 1, align: "center",
+    font: "sans", lh: 1, track: 0, fade: 1, fadeH: .64, shadow: .45, showLogo: null,
+    arrow: null, arrowColor: null, coverArrow: true, boxColor: null,
+    shadowColor: null, fadeColor: null, textPos: null, numAlpha: .22, numScale: 1,
+    topFade: .55, hlStyle: "same", badge: "", badgeColor: null, badgePos: "above",
+    bgImg: null, bgDim: null, weight: "", caps: false, textColor: null, hiScale: 1, tpl: null
+  }, o || {});
+}
+function normSlide(s){ const n = S(s); n.textOnly = false; n.chip = Object.assign({name:"",title:""}, s && s.chip || {}); return n; }
+function normPost(id, p){
+  const n = Object.assign({title:"Untitled post", format:"carousel", bgImg:null, bgDim:.55, date:"", day:"tue", status:"draft", label:"", theme:{}, showCounter:false, caption:"", photos:[], slides:[]}, p);
+  n.id = id; n.theme = n.theme || {}; n.photos = (n.photos||[]).filter(r => r && (r.id || r.src));
+  n.slides = (n.slides||[]).map(normSlide);
+  return n;
+}
+const LOOK_KEYS = ["tpl","hiScale","font","hlStyle","hlLast","weight","caps","textColor","scale","lh","track","boxColor","fade","fadeH","topFade","shadow","shadowColor","fadeColor","arrowColor","bw","align","textPos","numAlpha","numScale","badgeColor","badgePos"];
+const presetKey = p => p.format === "reel" ? "reel" : p.day;
+const presetLabel = key => key === "reel" ? "reel covers" : `${DAYS[key] ? DAYS[key].name : key} carousels`;
+function lookOf(s){ const o = {}; LOOK_KEYS.forEach(k => { if (s[k] !== undefined) o[k] = s[k]; }); return clone(o); }
+/* reel cover templates: a template only restyles the cover; the photo and words stay */
+const REEL_BASE = {weight:"", caps:false, hlStyle:"same", hiScale:1, lh:1, track:0, align:"center", textPos:"bottom", fade:1.25, fadeH:.6, topFade:.35, shadow:.6, badgePos:"above"};
+const REEL_TPLS = {
+  bold:      {name:"Bold bottom",  look:{...REEL_BASE, font:"tall", scale:1.05}},
+  boxed:     {name:"Boxed word",   look:{...REEL_BASE, font:"heavy", scale:1.1, badgePos:"top-left", fade:1.35}},
+  statement: {name:"Statement",    look:{...REEL_BASE, font:"round", weight:"900", hiScale:1.8, scale:1, fade:1.45, fadeH:.7, topFade:0}},
+  topline:   {name:"Top headline", look:{...REEL_BASE, font:"cond", weight:"700", caps:true, scale:1.05, textPos:"top", topFade:0, fade:1.2, fadeH:.55}},
+  minimal:   {name:"Minimal left", look:{...REEL_BASE, font:"xtall", caps:true, scale:1.15, align:"left", fade:1.1, fadeH:.55, topFade:.3}},
+  quote:     {name:"Quote",        look:{...REEL_BASE, font:"sans", weight:"800", scale:.92, fade:1.4, fadeH:.68, hiScale:1.05}}
+};
+const BADGES = ["Exclusive", "Hard truth", "New episode", "Must watch", "Story time", "Unfiltered", "Part 1"];
+function templateFor(day, format){
+  if (format === "reel") return [S({...clone(REEL_TPLS.bold.look), tpl:"bold", isCover:true, hideLabel:true, coverArrow:false, headline:"The guest's boldest line, *8 words* max", badge:"Hard truth"})];
+  const d = DAYS[day], Q = "\"Their words go here, *15 words* or fewer.\"";
+  const cover = h => S({isCover:true, headline:h});
+  const cta = S({layout:"cta", headline:d.cta, sub:""});
+  const chip = {name:"Guest name", title:"What they do"};
+  switch(day){
+    case "mon": return [cover("The guest's boldest line, *8 words* max"), cta];
+    case "tue": return [cover("6 money truths nobody taught you *at home*"), ...[1,2,3,4,5,6].map(()=>S({headline:Q, chip:{...chip}})), cta];
+    case "wed": return [cover("How to start *[outcome]* in Ghana"), ...[1,2,3,4,5].map(n=>S({layout:"step", tag:"Step", num:String(n), headline:"One step, one sentence, in the guest's words."})), cta];
+    case "thu": return [cover("He was told no *a hundred* times…"), ...["Where it started","The lowest point","The turning point","The first win","Today"].map(t=>S({tag:t, headline:Q, sub:"One small line of context."})), S({tag:"The lesson", headline:Q}), cta];
+    case "fri": return [cover("40 years married. Here's what he *knows*."), ...[1,2,3,4,5,6].map(()=>S({layout:"split", tag:"Derrick", headline:"Derrick's question goes here?", tag2:"Guest", text2:"The guest's answer, word for word."})), cta];
+    case "sat": return [cover("Your weekend watchlist: *[goal]*"), ...[1,2,3,4,5].map(()=>S({layout:"split", headline:"Want to *[goal]*?", tag2:"Watch this", text2:"Their best line, word for word.", chip:{...chip}})), cta];
+    case "sun": return [cover("Everything *[guest]* taught us, in 7 slides"), ...[1,2,3,4,5,6].map(()=>S({headline:"What the guest covers here, as a *teaser*."})), S({layout:"cta", headline:"Watch the full conversation on *YouTube*", sub:"New episodes every Friday, 4 pm"})];
+  }
+  return [cover("Cover line"), cta];
+}
+
+/* ---------- theme ---------- */
+function themeOf(p){
+  const d = DAYS[p.day] || DAYS.tue, o = p.theme || {};
+  const accent = o.accent || d.accent, base = o.base || d.base;
+  return {accent, base, hi: o.accent || d.hi, ink: inkFor(accent), bw: !!d.bw, pillar: (p.label || d.pillar)};
+}
+const bwOf = (p, s) => s.bw === true || (s.bw == null && themeOf(p).bw);
+
+/* ---------- images ---------- */
+const imgCache = new Map();
+function srcOf(ref){ if (!ref) return null; if (ref.src) return ref.src; if (ref.id) return window.KH ? KH.assetSrc(ref.id) : ""; return null; }
+function entry(ref){
+  const src = srcOf(ref); if (!src) return null;
+  let e = imgCache.get(src);
+  if (!e){
+    const im = new Image(); e = {im, ok:false, err:false, waiters:[]};
+    im.onload = () => { e.ok = true; e.waiters.splice(0).forEach(f=>f(im)); scheduleRender(true); };
+    im.onerror = () => { e.err = true; e.waiters.splice(0).forEach(f=>f(null)); scheduleRender(true); };
+    im.src = src; imgCache.set(src, e);
+  }
+  return e;
+}
+function getImg(ref){ const e = entry(ref); return e && e.ok ? e.im : null; }
+async function loadImg(ref){
+  if (ref && ref.id && !ref.src && window.KH) await KH.assetReady(ref.id);
+  const e = entry(ref); if (!e) return Promise.resolve(null);
+  if (e.ok) return Promise.resolve(e.im); if (e.err) return Promise.resolve(null);
+  return new Promise(res => { e.waiters.push(res); setTimeout(()=>res(e.ok?e.im:null), 20000); });
+}
+const LOGO = new Image(); LOGO.onload = () => scheduleRender(true); LOGO.src = LOGO_FULL_SRC;
+const MARK = new Image(); MARK.onload = () => scheduleRender(true); MARK.src = LOGO_MARK_SRC;
+
+/* ---------- fonts ---------- */
+let fontsOk = false;
+const FONT_SPECS = ["500 40px Montserrat","600 40px Montserrat","700 40px Montserrat","800 40px Montserrat","900 40px Montserrat","italic 400 40px \"Instrument Serif\"","400 40px Anton","400 40px \"Bebas Neue\"","italic 400 40px \"DM Serif Display\"","italic 800 40px Fraunces","400 40px \"Archivo Black\"","400 40px \"League Gothic\"","700 40px Oswald","800 40px Poppins","900 40px Poppins"];
+const fontsReady = Promise.all(FONT_SPECS.map(f => document.fonts.load(f).catch(()=>null)))
+  .then(() => document.fonts.ready).catch(()=>null).then(() => { fontsOk = true; scheduleRender(true); });
+
+/* ---------- canvas drawing ---------- */
+const FILTER_OK = (() => { try { const c = document.createElement("canvas").getContext("2d"); return typeof c.filter === "string"; } catch(e){ return false; } })();
+const FAMS = {
+  sans: {name:"Classic", scale:1,    lh:1.12, base:.80, last:.98, hi:1.16, css:(w, px) => `${w} ${px}px Montserrat, system-ui, sans-serif`},
+  tall: {name:"Tall",    scale:1.22, lh:1.02, base:.86, last:1.0, hi:.98,  css:(w, px) => `400 ${px}px Anton, Impact, "Arial Narrow", sans-serif`},
+  caps: {name:"Tall caps", scale:1.42, lh:.92, base:.74, last:.76, hi:.80, upper:true, css:(w, px) => `400 ${px}px "Bebas Neue", Impact, "Arial Narrow", sans-serif`},
+  xtall:{name:"Extra tall", scale:1.55, lh:.9, base:.78, last:.8, hi:.74, css:(w, px) => `400 ${px}px "League Gothic", Impact, "Arial Narrow", sans-serif`},
+  cond: {name:"Condensed", scale:1.14, lh:1.04, base:.86, last:1.0, hi:.9, css:(w, px) => `${Math.min(w, 700)} ${px}px Oswald, Impact, "Arial Narrow", sans-serif`},
+  heavy:{name:"Heavy", scale:.92, lh:1.08, base:.82, last:1.0, hi:1.12, css:(w, px) => `400 ${px}px "Archivo Black", "Arial Black", sans-serif`},
+  round:{name:"Rounded bold", scale:.98, lh:1.08, base:.84, last:1.0, hi:1.1, css:(w, px) => `${Math.max(w, 600)} ${px}px Poppins, system-ui, sans-serif`}
+};
+const WEIGHTS = [["", "Default"], ["700", "Bold"], ["800", "Extra bold"], ["900", "Black"]];
+/* fonts for the *italic* highlight; k evens out their different x-heights */
+const HI_FONTS = {
+  same:    {name:"Same font, colour only", k:1, css:null},
+  bold:    {name:"Bold serif", k:.92, css:px => `italic 400 ${px}px "DM Serif Display", Georgia, serif`},
+  chunky:  {name:"Chunky",     k:.86, css:px => `italic 800 ${px}px Fraunces, Georgia, serif`},
+  classic: {name:"Elegant",    k:1,   css:px => `italic 400 ${px}px "Instrument Serif", Georgia, serif`}
+};
+let SHADOW = .45, SHADOW_C = "#000000", HIF = "bold", HISCALE = 1;
+function fontFor(style, size, weight, fam){
+  const F = FAMS[fam] || FAMS.sans;
+  if (style === "hi"){
+    // a different upright font picked from the headline fonts
+    if (FAMS[HIF]){ const G = FAMS[HIF]; return G.css(weight, Math.round(size / F.scale * G.scale * HISCALE)); }
+    const HF = HI_FONTS[HIF] || HI_FONTS.same;
+    // "same": the highlighted words keep the headline font and only change colour (and size, if enlarged)
+    if (!HF.css) return F.css(weight, Math.round(size*HISCALE));
+    return HF.css(Math.round(size*F.hi*HF.k*HISCALE));
+  }
+  return F.css(style === "b" ? 900 : style === "box" ? Math.max(weight, 800) : weight, Math.round(size));
+}
+function tw(ctx, str, track){ return ctx.measureText(str).width + (track ? track * Math.max(0, [...str].length - 1) : 0); }
+function tdraw(ctx, str, x, y, track){
+  if (!track){ ctx.fillText(str, x, y); return; }
+  for (const ch of str){ ctx.fillText(ch, x, y); x += ctx.measureText(ch).width + track; }
+}
+function parseRich(text){
+  const toks = []; let sp = false, run = 0;
+  String(text||"").split(/(==[^=\n]+==|\*\*[^*\n]+\*\*|\*[^*\n]+\*)/g).forEach(part => {
+    if (!part) return;
+    let style = "n", body = part;
+    if (/^==[^=]+==$/.test(part)){ style = "box"; body = part.slice(2,-2); run++; }
+    else if (/^\*\*[^*]+\*\*$/.test(part)){ style = "b"; body = part.slice(2,-2); }
+    else if (/^\*[^*]+\*$/.test(part)){ style = "hi"; body = part.slice(1,-1); }
+    const start = toks.length;
+    body.split(/(\s+)/).forEach(piece => {
+      if (!piece) return;
+      if (/^\s+$/.test(piece)){ if (style === "box" && !/\n/.test(piece)) { sp = true; return; } const nl = (piece.match(/\n/g)||[]).length; for (let i=0;i<nl;i++) toks.push({br:true}); sp = true; return; }
+      toks.push({w:piece, s:style, sp, run: style === "box" ? run : 0}); sp = false;
+    });
+    if (style === "box"){ const words = toks.slice(start).filter(t => !t.br); if (words.length){ words[0].first = true; words[words.length-1].last = true; } }
+  });
+  return toks;
+}
+/* lhMul scales the family's own line height; track is extra letter spacing in px */
+function layoutRich(ctx, text, size, weight, maxW, lhMul, fam, track, upper){
+  fam = FAMS[fam] ? fam : "sans"; track = track || 0;
+  const F = FAMS[fam], eff = size * F.scale, lh = F.lh * (lhMul || 1);
+  const caps = F.upper || upper;
+  const serifHi = HIF !== "same" && !!HI_FONTS[HIF];
+  const hiUpper = HIF === "same" ? caps : FAMS[HIF] ? (caps || FAMS[HIF].upper) : false;
+  const toks = parseRich(text).map(t => t.br ? t : (t.s === "hi" ? hiUpper : caps) ? {...t, w: t.w.toUpperCase()} : t);
+  ctx.font = fontFor("n", eff, weight, fam);
+  const space = ctx.measureText(" ").width + track;
+  // group tokens that touch (e.g. a highlighted word and its full stop) so they wrap together
+  const groups = [];
+  for (const t of toks){
+    if (t.br){ groups.push({br:true}); continue; }
+    ctx.font = fontFor(t.s, eff, weight, fam);
+    const pad = t.s === "box" ? eff * .2 : 0;
+    const pl = t.first ? pad : 0, pr = t.last ? pad : 0;
+    const w = tw(ctx, t.w, track) + pl + pr + (t.s === "hi" && serifHi ? eff * .06 : 0), last = groups[groups.length-1];
+    if (last && !last.br && !t.sp) { last.parts.push({t, dx:last.w + track, w, pl, pr}); last.w += track + w; }
+    else groups.push({sp:t.sp, w, parts:[{t, dx:0, w, pl, pr}]});
+  }
+  const lines = [{items:[], w:0}];
+  for (const g of groups){
+    if (g.br){ lines.push({items:[], w:0}); continue; }
+    let L = lines[lines.length-1];
+    if (L.items.length && L.w + space + g.w > maxW){ L = {items:[], w:0}; lines.push(L); }
+    const gap = L.items.length ? space : 0;
+    g.parts.forEach(pt => L.items.push({t:pt.t, x: L.w + gap + pt.dx, w:pt.w, pl:pt.pl, pr:pt.pr}));
+    L.w += gap + g.w;
+  }
+  // lines holding an enlarged italic highlight get taller, so big words never collide with the line above
+  const HS = Math.max(1, HISCALE), n = lines.length;
+  lines.forEach(l => { l.sc = l.items.some(it => it.t.s === "hi") ? HS : 1; });
+  let acc = 0;
+  lines.forEach((l, k) => { acc += k === 0 ? eff*F.base*l.sc : eff*lh*(.3*lines[k-1].sc + .7*l.sc); l.b = acc; });
+  return {lines, size: eff, weight, lh, fam, track, F, h: n ? acc + eff*(F.last - F.base)*lines[n-1].sc : 0};
+}
+function drawRich(ctx, L, y, align, x0, color, hi, box){
+  const boxFill = box || hi, boxInk = inkFor(boxFill);
+  L.lines.forEach((line, k) => {
+    const base = y + line.b;
+    const sx = align === "center" ? x0 - line.w/2 : align === "right" ? x0 - line.w : x0;
+    // one rounded box per highlighted run on this line
+    const runs = new Map();
+    line.items.forEach(it => { if (it.t.s !== "box") return; const r = runs.get(it.t.run) || {a: Infinity, b: -Infinity}; r.a = Math.min(r.a, sx + it.x); r.b = Math.max(r.b, sx + it.x + it.w); runs.set(it.t.run, r); });
+    if (runs.size){
+      const sc = ctx.shadowColor; ctx.shadowColor = "transparent";
+      const top = base - L.size*L.F.base*1.06, h = L.size*(L.F.base*1.06 + .26);
+      runs.forEach(r => { rr(ctx, r.a, top, r.b - r.a, h, L.size*.14); ctx.fillStyle = boxFill; ctx.fill(); });
+      ctx.shadowColor = sc;
+    }
+    line.items.forEach(it => {
+      ctx.font = fontFor(it.t.s, L.size, L.weight, L.fam);
+      if (it.t.s === "box"){ const sc = ctx.shadowColor; ctx.shadowColor = "transparent"; ctx.fillStyle = boxInk; tdraw(ctx, it.t.w, sx + it.x + (it.pl||0), base, L.track); ctx.shadowColor = sc; return; }
+      ctx.fillStyle = it.t.s === "n" ? color : hi;
+      tdraw(ctx, it.t.w, sx + it.x, base, L.track);
+    });
+  });
+}
+function spacedW(ctx, text, sp){ let w = 0; for (const ch of text) w += ctx.measureText(ch).width; return w + sp*Math.max(0, [...text].length-1); }
+function spaced(ctx, text, x, y, sp, align){
+  const w = spacedW(ctx, text, sp);
+  let cx = align === "center" ? x - w/2 : align === "right" ? x - w : x;
+  for (const ch of text){ ctx.fillText(ch, cx, y); cx += ctx.measureText(ch).width + sp; }
+  return w;
+}
+function rr(ctx, x, y, w, h, r){
+  ctx.beginPath();
+  if (ctx.roundRect){ ctx.roundRect(x, y, w, h, r); return; }
+  ctx.moveTo(x+r, y); ctx.arcTo(x+w, y, x+w, y+h, r); ctx.arcTo(x+w, y+h, x, y+h, r); ctx.arcTo(x, y+h, x, y, r); ctx.arcTo(x, y, x+w, y, r); ctx.closePath();
+}
+function shadowOn(ctx, on){ on = on && SHADOW > 0; ctx.shadowColor = on ? hexA(SHADOW_C, Math.min(1, SHADOW*1.15)) : "transparent"; ctx.shadowBlur = on ? 14 + 30*SHADOW : 0; ctx.shadowOffsetY = on ? 2 + 2*SHADOW : 0; }
+
+function drawBase(ctx, t, x=0, y=0, w=W, h=H){
+  if (t.bgImg){
+    // custom background image, tinted with the background colour so text stays readable
+    ctx.save(); ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
+    drawCover(ctx, t.bgImg, x, y, w, h, .5, .5, 1, false);
+    ctx.fillStyle = hexA(t.base, clamp(t.bgDim ?? .55, 0, 1)); ctx.fillRect(x, y, w, h);
+    ctx.restore(); return;
+  }
+  ctx.fillStyle = t.base; ctx.fillRect(x, y, w, h);
+  const g = ctx.createRadialGradient(x + w*0.88, y + h*0.06, 0, x + w*0.88, y + h*0.06, Math.max(w,h)*0.85);
+  g.addColorStop(0, hexA(t.accent, .20)); g.addColorStop(1, hexA(t.accent, 0));
+  ctx.fillStyle = g; ctx.fillRect(x, y, w, h);
+  const g2 = ctx.createRadialGradient(x + w*0.05, y + h, 0, x + w*0.05, y + h, Math.max(w,h)*0.7);
+  g2.addColorStop(0, hexA(mix(t.base, "#ffffff", .10), .9)); g2.addColorStop(1, hexA(t.base, 0));
+  ctx.fillStyle = g2; ctx.fillRect(x, y, w, h);
+}
+function drawCover(ctx, img, x, y, w, h, fx, fy, zoom, bw){
+  const iw = img.naturalWidth, ih = img.naturalHeight; if (!iw || !ih) return;
+  const sc = Math.max(w/iw, h/ih) * (zoom || 1);
+  const sw = w/sc, sh = h/sc;
+  const sx = clamp((iw - sw) * (fx ?? .5), 0, Math.max(0, iw - sw));
+  const sy = clamp((ih - sh) * (fy ?? .5), 0, Math.max(0, ih - sh));
+  if (bw && FILTER_OK){ ctx.save(); ctx.filter = "grayscale(1) contrast(1.06)"; ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h); ctx.restore(); return; }
+  ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
+  if (bw){
+    try {
+      const X = Math.round(x), Y = Math.round(y), d = ctx.getImageData(X, Y, Math.round(w), Math.round(h)), a = d.data;
+      for (let i = 0; i < a.length; i += 4){ const v = a[i]*.299 + a[i+1]*.587 + a[i+2]*.114; a[i]=a[i+1]=a[i+2]=v; }
+      ctx.putImageData(d, X, Y);
+    } catch(e){}
+  }
+}
+function drawPill(ctx, text, x, y, o){
+  const size = o.size || 20, sp = o.sp ?? 3.5, h = o.h || 46, padX = o.padX || 20;
+  ctx.font = `800 ${size}px Montserrat, system-ui, sans-serif`;
+  const tw = spacedW(ctx, text, sp), w = tw + padX*2;
+  const left = o.align === "center" ? x - w/2 : o.align === "right" ? x - w : x;
+  rr(ctx, left, y, w, h, h/2); ctx.fillStyle = o.fill; ctx.fill();
+  if (o.stroke){ ctx.strokeStyle = o.stroke; ctx.lineWidth = 2; ctx.stroke(); }
+  ctx.fillStyle = o.color; spaced(ctx, text, left + padX, y + h/2 + size*0.36, sp, "left");
+  return w;
+}
+function chipW(ctx, c){
+  ctx.font = "700 25px Montserrat, system-ui, sans-serif"; const nw = ctx.measureText(c.name).width;
+  ctx.font = "500 25px Montserrat, system-ui, sans-serif"; const tw = c.title ? ctx.measureText("  ·  " + c.title).width : 0;
+  return 22 + 24 + 12 + nw + tw + 24;
+}
+function drawChip(ctx, c, x, y, align, t){
+  const h = 58, w = chipW(ctx, c);
+  const left = align === "center" ? x - w/2 : align === "right" ? x - w : x;
+  shadowOn(ctx, false);
+  rr(ctx, left, y, w, h, h/2); ctx.fillStyle = "rgba(8,10,28,.66)"; ctx.fill();
+  ctx.strokeStyle = "rgba(255,255,255,.20)"; ctx.lineWidth = 1.5; ctx.stroke();
+  const cx = left + 22 + 12, cy = y + h/2;
+  ctx.beginPath(); ctx.arc(cx, cy, 12, 0, Math.PI*2); ctx.fillStyle = t.accent; ctx.fill();
+  ctx.beginPath(); ctx.moveTo(cx-5.5, cy+0.5); ctx.lineTo(cx-1.5, cy+4.5); ctx.lineTo(cx+6, cy-4);
+  ctx.strokeStyle = t.ink; ctx.lineWidth = 3; ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.stroke();
+  let tx = cx + 12 + 12;
+  ctx.font = "700 25px Montserrat, system-ui, sans-serif"; ctx.fillStyle = "#fff"; ctx.fillText(c.name, tx, y + 38);
+  tx += ctx.measureText(c.name).width;
+  if (c.title){ ctx.font = "500 25px Montserrat, system-ui, sans-serif"; ctx.fillStyle = "rgba(255,255,255,.74)"; ctx.fillText("  ·  " + c.title, tx, y + 38); }
+}
+function drawArrow(ctx, cx, y){
+  ctx.save(); shadowOn(ctx, false);
+  ctx.strokeStyle = "rgba(255,255,255,.92)"; ctx.lineWidth = 4.5; ctx.lineCap = "round"; ctx.lineJoin = "round";
+  ctx.beginPath(); ctx.moveTo(cx-74, y+10); ctx.bezierCurveTo(cx-34, y+26, cx+12, y-4, cx+70, y+8); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx+48, y-10); ctx.lineTo(cx+71, y+8); ctx.lineTo(cx+46, y+24); ctx.stroke();
+  ctx.restore();
+}
+
+/* stack items: measured, then drawn top-down from a computed top */
+function measure(ctx, it){
+  switch(it.k){
+    case "tag": return it.h = 28;
+    case "pill": return it.h = 46;
+    case "badge": return it.h = 66;
+    case "chip": return it.h = 58;
+    case "arrow": return it.h = 30;
+    case "num": return it.h = it.size * 0.74;
+    case "logo": return it.h;
+    case "rich": it.L = layoutRich(ctx, it.text, it.size, it.weight, it.maxW, it.lh, it.fam, it.track, it.upper); return it.h = it.L.h;
+  }
+  return it.h = 0;
+}
+function stackHeight(ctx, items){ return items.reduce((s, it, i) => s + measure(ctx, it) + (i ? it.gap || 0 : 0), 0); }
+function drawStack(ctx, items, top, align, x0, t, shadow){
+  let y = top;
+  items.forEach((it, i) => {
+    if (i) y += it.gap || 0;
+    shadowOn(ctx, shadow && (it.k === "rich" || it.k === "tag" || it.k === "num"));
+    switch(it.k){
+      case "tag": ctx.font = "700 24px Montserrat, system-ui, sans-serif"; ctx.fillStyle = it.color || t.hi; spaced(ctx, it.text.toUpperCase(), x0, y + 22, 4.5, align); break;
+      case "pill": shadowOn(ctx, false); drawPill(ctx, it.text.toUpperCase(), x0, y, {fill:t.accent, color:t.ink, size:19, h:46, align}); break;
+      case "chip": drawChip(ctx, it.chip, x0, y, align, t); break;
+      case "arrow": drawArrow(ctx, align === "center" ? x0 : x0 + 74, y); break;
+      case "num": shadowOn(ctx, false); ctx.globalAlpha = clamp(it.alpha ?? 1, 0, 1); ctx.font = `900 ${Math.round(it.size)}px Montserrat, system-ui, sans-serif`; ctx.fillStyle = t.accent;
+        ctx.textAlign = "left"; ctx.fillText(it.text, align === "center" ? x0 - ctx.measureText(it.text).width/2 : x0 - it.size*0.03, y + it.size*0.74); ctx.globalAlpha = 1; break;
+      case "logo": if (LOGO.complete && LOGO.naturalWidth){ const w = it.h * LOGO.naturalWidth / LOGO.naturalHeight; ctx.drawImage(LOGO, align === "center" ? x0 - w/2 : x0, y, w, it.h); } break;
+      case "rich": {
+        // above half strength, stack the shadow so the slider really reaches a solid dark halo
+        const passes = shadow ? (SHADOW > .85 ? 3 : SHADOW > .5 ? 2 : 1) : 1;
+        for (let k = 0; k < passes; k++) drawRich(ctx, it.L, y, align, x0, it.color || "#fff", it.hi || t.hi, it.box || t.box);
+        break;
+      }
+      case "badge": shadowOn(ctx, false); drawPill(ctx, it.text.toUpperCase(), x0, y, {fill:it.fill, color:inkFor(it.fill), size:30, h:66, padX:30, sp:3, align}); break;
+    }
+    y += it.h;
+  });
+  shadowOn(ctx, false);
+}
+function hasChip(s){ return s.chip && s.chip.name && s.chip.name.trim(); }
+
+function headItem(s, text, size, weight, maxW, gap){
+  return {k:"rich", text, size, weight: +s.weight || weight, maxW, lh: s.lh, fam: s.font, track: s.track, upper: !!s.caps, color: s.textColor || "#FFFFFF", gap};
+}
+function textItems(s, t, big){
+  const sc = s.scale || 1, items = [];
+  const left = s.align === "left";
+  if (s.badge && (s.badgePos || "above") === "above") items.push({k:"badge", text:s.badge, fill:s.badgeColor || t.accent, gap:0});
+  if (hasChip(s) && s.chipPos === "above") items.push({k:"chip", chip:s.chip, gap:22});
+  if (s.tag) items.push({k:"tag", text:s.tag, gap:26});
+  if (s.headline) items.push(headItem(s, s.headline, (big ? (IS_REEL ? 108 : 86) : 64)*sc, big ? 800 : 700, W - 2*M, s.tag ? 18 : 30));
+  if (s.sub) items.push({k:"rich", text:s.sub, size:30*sc, weight:500, maxW: left ? W-2*M : W - 2*M - 60, lh:1.22*(s.lh||1), color:"rgba(255,255,255,.84)", gap:24});
+  if (s.isCover && !left && s.coverArrow !== false) items.push({k:"arrow", gap:36});
+  if (items.length) items[0].gap = 0;
+  return items;
+}
+function drawPhotoLayout(ctx, p, s, t){
+  const img = s.textOnly ? null : getImg(s.img);
+  drawBase(ctx, t);
+  if (img){
+    drawCover(ctx, img, 0, 0, W, H, s.fx, s.fy, s.zoom, bwOf(p, s));
+    const f = s.fade ?? 1, fh = clamp(s.fadeH ?? .64, .2, 1);
+    const fromTop = s.textPos === "top";
+    const g = fromTop ? ctx.createLinearGradient(0, H*fh, 0, 0) : ctx.createLinearGradient(0, H*(1-fh), 0, H);
+    // past 1 the fade fills in from its far edge too, so at 2 it is a solid block
+    g.addColorStop(0, hexA(t.fade, clamp(f - 1, 0, 1))); g.addColorStop(.42, hexA(t.fade, Math.min(1, .62*f))); g.addColorStop(1, hexA(t.fade, Math.min(1, .95*f)));
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    if (!fromTop) drawTopShade(ctx, s, t);
+  }
+  const items = textItems(s, t, s.isCover);
+  const total = stackHeight(ctx, items);
+  const align = s.align === "left" ? "left" : "center";
+  const x0 = align === "left" ? M : W/2;
+  const pos = s.textPos || (img ? "bottom" : "middle");
+  const top = pos === "top" ? Math.max(M + 90, 170) : pos === "middle" ? Math.max(170, (H - total)/2 + 30) : (H - SAFE_B - total);
+  drawStack(ctx, items, top, align, x0, t, !!img);
+  if (hasChip(s) && s.chipPos !== "above"){
+    const right = s.chipPos === "top-right";
+    drawChip(ctx, s.chip, right ? W - M : M, s.hideLabel ? 72 : 140, right ? "right" : "left", t);
+  }
+}
+/* the dark band at the top that keeps the label and logo readable; optional per slide */
+function drawTopShade(ctx, s, t){
+  const a = clamp(s.topFade ?? .55, 0, 1); if (!a) return;
+  const h = 200 + 160*a;
+  const g = ctx.createLinearGradient(0, 0, 0, h); g.addColorStop(0, hexA(t.fade, a)); g.addColorStop(1, hexA(t.fade, 0));
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, h);
+}
+function drawStepLayout(ctx, p, s, t){
+  const img = s.textOnly ? null : getImg(s.img);
+  drawBase(ctx, t);
+  if (img){
+    ctx.save(); ctx.globalAlpha = .42; drawCover(ctx, img, 0, 0, W, H, s.fx, s.fy, s.zoom, bwOf(p, s)); ctx.restore();
+    const f = s.fade ?? 1;
+    const g = ctx.createLinearGradient(0, 0, 0, H); const boost = clamp(f - 1, 0, 1); g.addColorStop(0, hexA(t.fade, Math.min(1, .30*f + .7*boost))); g.addColorStop(.55, hexA(t.fade, Math.min(1, .78*f))); g.addColorStop(1, hexA(t.fade, Math.min(1, .96*f)));
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  }
+  const sc = s.scale || 1, items = [];
+  if (s.badge && (s.badgePos || "above") === "above") items.push({k:"badge", text:s.badge, fill:s.badgeColor || t.accent, gap:0});
+  if (s.tag) items.push({k:"tag", text:s.tag, gap:26});
+  if (s.num) items.push({k:"num", text:s.num, size:400*(s.numScale || 1), alpha: s.numAlpha ?? .22, gap: s.tag ? 26 : 0});
+  if (s.headline) items.push(headItem(s, s.headline, 64*sc, 700, W - 2*M, 44));
+  if (s.sub) items.push({k:"rich", text:s.sub, size:30*sc, weight:500, maxW:W-2*M, lh:1.22*(s.lh||1), color:"rgba(255,255,255,.84)", gap:24});
+  if (items.length) items[0].gap = 0;
+  const total = stackHeight(ctx, items);
+  drawStack(ctx, items, H - SAFE_B - 20 - total, "left", M, t, !!img);
+}
+function drawCtaLayout(ctx, p, s, t){
+  const img = s.textOnly ? null : getImg(s.img);
+  drawBase(ctx, t);
+  if (img){ drawCover(ctx, img, 0, 0, W, H, s.fx, s.fy, s.zoom, bwOf(p, s)); ctx.fillStyle = hexA(t.fade, Math.min(1, .84*(s.fade ?? 1))); ctx.fillRect(0, 0, W, H); }
+  const sc = s.scale || 1, items = [{k:"logo", h:118, gap:0}];
+  if (s.headline) items.push(headItem(s, s.headline, 70*sc, 800, W - 2*M - 40, 96));
+  if (s.sub) items.push({k:"rich", text:s.sub, size:30*sc, weight:500, maxW:W-2*M-80, lh:1.22*(s.lh||1), color:"rgba(255,255,255,.80)", gap:28});
+  const total = stackHeight(ctx, items);
+  drawStack(ctx, items, (H - total)/2 - 20, "center", W/2, t, !!img);
+  if (s.handle){ ctx.font = "700 28px Montserrat, system-ui, sans-serif"; ctx.fillStyle = t.hi; spaced(ctx, s.handle, W/2, H - SAFE_B - 20, 2, "center"); }
+}
+function drawHalf(ctx, p, s, t, which){
+  const hh = H/2, y0 = which === 1 ? 0 : hh;
+  const ref = which === 1 ? s.img : s.img2;
+  const img = s.textOnly ? null : getImg(ref);
+  const tag = which === 1 ? s.tag : s.tag2, text = which === 1 ? s.headline : s.text2;
+  const sc = s.scale || 1;
+  ctx.save(); ctx.beginPath(); ctx.rect(0, y0, W, hh); ctx.clip();
+  if (img){
+    drawCover(ctx, img, 0, y0, W, hh, which === 1 ? s.fx : s.fx2, which === 1 ? s.fy : s.fy2, which === 1 ? s.zoom : s.zoom2, bwOf(p, s));
+    const f = s.fade ?? 1, fh = clamp(s.fadeH ?? .64, .2, 1);
+    const g = ctx.createLinearGradient(0, y0 + hh*(1-fh), 0, y0 + hh); g.addColorStop(0, hexA(t.fade, clamp(f - 1, 0, 1))); g.addColorStop(1, hexA(t.fade, Math.min(1, .86*f)));
+    ctx.fillStyle = g; ctx.fillRect(0, y0, W, hh);
+    if (which === 1) drawTopShade(ctx, s, t);
+  } else {
+    drawBase(ctx, which === 1 ? {...t, base: mix(t.base, "#ffffff", .06)} : t, 0, y0, W, hh);
+  }
+  const items = [];
+  if (which === 2 && hasChip(s)) items.push({k:"chip", chip:s.chip, gap:0});
+  if (tag) items.push({k:"pill", text:tag, gap:22});
+  if (text) items.push(headItem(s, text, (img ? 48 : 58)*sc, img ? 700 : 800, W - 2*M, 22));
+  if (items.length) items[0].gap = 0;
+  const total = stackHeight(ctx, items);
+  const bottom = which === 1 ? hh - 44 : H - SAFE_B;
+  const top = img ? bottom - total : y0 + (hh - total)/2 + (which === 1 ? 36 : -20);
+  drawStack(ctx, items, top, "center", W/2, t, !!img);
+  ctx.restore();
+}
+function drawSplitLayout(ctx, p, s, t){
+  drawHalf(ctx, p, s, t, 1); drawHalf(ctx, p, s, t, 2);
+  ctx.fillStyle = t.base; ctx.fillRect(0, H/2 - 3, W, 6);
+}
+function arrowShown(s, i, n, p){ return s.arrow ?? (!(p && p.format === "reel") && i < n - 1); }
+function drawSwipe(ctx, color){
+  const x1 = W - M, x0 = x1 - 54, y = H - 92;
+  ctx.save();
+  ctx.shadowColor = hexA(SHADOW_C, Math.min(.6, SHADOW * .8)); ctx.shadowBlur = 10; ctx.shadowOffsetY = 1;
+  ctx.strokeStyle = color || "#FFFFFF"; ctx.lineWidth = 5; ctx.lineCap = "round"; ctx.lineJoin = "round";
+  ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x1, y); ctx.moveTo(x1 - 15, y - 15); ctx.lineTo(x1, y); ctx.lineTo(x1 - 15, y + 15); ctx.stroke();
+  ctx.restore();
+}
+function logoShown(s, i, n, p){ return s.layout !== "cta" && (s.showLogo ?? ((p && p.format === "reel") || i === 0 || i === n - 1)); }
+function drawSlide(ctx, p, s, i, n){
+  H = postH(p); IS_REEL = p.format === "reel";
+  // a reel cover is a single image: no layouts, labels, arrows or counters
+  if (IS_REEL){ s = Object.assign({}, s, {layout:"photo", isCover:true, coverArrow:false, hideLabel:true, arrow:false}); i = 0; n = 1; }
+  ctx.save();
+  ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+  ctx.clearRect(0, 0, W, H);
+  const t = themeOf(p);
+  HIF = s.hlStyle || "same"; HISCALE = clamp(s.hiScale || 1, .6, 3);
+  t.bgImg = getImg(s.bgImg || p.bgImg); t.bgDim = s.bgDim ?? p.bgDim ?? .55;
+  M = clamp(p.margin ?? MARGIN, 60, 170);
+  SAFE_B = Math.max(160, M + 60);
+  SHADOW = clamp(s.shadow ?? .45, 0, 1); SHADOW_C = s.shadowColor || "#000000";
+  t.fade = s.fadeColor || t.base;
+  if (s.boxColor){ t.hi = s.boxColor; t.box = s.boxColor; } else t.box = t.accent;
+  ({split:drawSplitLayout, step:drawStepLayout, cta:drawCtaLayout}[s.layout] || drawPhotoLayout)(ctx, p, s, t);
+  shadowOn(ctx, false);
+  const badgeTop = s.badge && s.badgePos === "top-left" && s.layout !== "cta" && s.layout !== "split";
+  if (badgeTop){ const f = s.badgeColor || t.accent; drawPill(ctx, s.badge.toUpperCase(), M, Math.max(56, M - 30), {fill:f, color:inkFor(f), size:24, h:56, padX:24, sp:3}); }
+  else if (!s.hideLabel && s.layout !== "cta") drawPill(ctx, t.pillar.toUpperCase(), M, Math.max(56, M - 30), {fill:t.accent, color:t.ink, size:22, h:52, padX:22});
+  if (arrowShown(s, i, n, p)) drawSwipe(ctx, s.arrowColor);
+  const logoOn = logoShown(s, i, n, p);
+  if (logoOn && LOGO.complete && LOGO.naturalWidth){ const lh = 58, lw = lh * LOGO.naturalWidth / LOGO.naturalHeight; ctx.drawImage(LOGO, W - M - lw, Math.max(53, M - 33), lw, lh); }
+  if (p.showCounter && !IS_REEL){ ctx.font = "700 24px Montserrat, system-ui, sans-serif"; ctx.fillStyle = "rgba(255,255,255,.88)"; spaced(ctx, `${pad2(i+1)} / ${pad2(n)}`, W - M, logoOn ? 166 : 97, 2, "right"); }
+  else if (!logoOn && s.layout === "split" && MARK.complete && MARK.naturalWidth){ const h = 50, w = h * MARK.naturalWidth / MARK.naturalHeight; ctx.globalAlpha = .92; ctx.drawImage(MARK, W - M - w, 63, w, h); ctx.globalAlpha = 1; }
+  ctx.restore();
+}
+
+/* preview-only overlay: the margin box, the bottom safe zone and the profile-grid crop */
+function drawGuides(ctx, p){
+  const m = M, sb = SAFE_B;
+  ctx.save(); ctx.lineWidth = 2; ctx.setLineDash([12, 10]);
+  ctx.strokeStyle = "rgba(255,90,90,.9)"; ctx.strokeRect(m, m - 30, W - 2*m, H - sb - (m - 30));
+  const reel = p.format === "reel", gx = (W - H*3/4) / 2;
+  if (!reel){ ctx.strokeStyle = "rgba(255,210,80,.85)"; ctx.strokeRect(gx, 0, W - 2*gx, H); }
+  ctx.setLineDash([]); ctx.font = "700 22px Montserrat, system-ui, sans-serif";
+  ctx.fillStyle = "rgba(255,90,90,.95)"; ctx.fillText("Safe area", m + 10, H - sb - 12);
+  if (!reel){ ctx.fillStyle = "rgba(255,210,80,.95)"; ctx.fillText("Profile grid crop (3:4)", gx + 10, 34); }
+  ctx.restore();
+}
+
+/* ---------- rendering the page ---------- */
+let rafId = 0, thumbTimer = 0;
+function scheduleRender(withThumbs){
+  if (!rafId) rafId = requestAnimationFrame(() => { rafId = 0; renderPreview(); });
+  if (withThumbs){ clearTimeout(thumbTimer); thumbTimer = setTimeout(renderThumbs, 160); }
+}
+function renderPreview(){
+  const c = $("#preview"), p = cur(), s = curSlide(); if (!c || !p || !s) return;
+  const ctx = c.getContext("2d");
+  drawSlide(ctx, p, s, state.slideIdx, p.slides.length);
+  if (state.guides) drawGuides(ctx, p);
+  c.classList.toggle("draggable", hasPhoto(s));
+}
+function renderThumbs(){
+  const p = cur(); if (!p) return;
+  const s0 = curSlide();
+  if (p.format === "reel" && s0) document.querySelectorAll("canvas[data-tpl]").forEach(c => {
+    const T = REEL_TPLS[c.dataset.tpl]; if (!T) return;
+    const ctx = c.getContext("2d"); ctx.save(); ctx.setTransform(c.width / W, 0, 0, c.height / postH(p), 0, 0);
+    drawSlide(ctx, p, Object.assign({}, s0, clone(T.look)), 0, 1); ctx.restore();
+  });
+  document.querySelectorAll(".thumb canvas").forEach((c, i) => {
+    const s = p.slides[i]; if (!s) return;
+    const ctx = c.getContext("2d"); ctx.save(); ctx.setTransform(c.width / W, 0, 0, c.height / postH(p), 0, 0);
+    drawSlide(ctx, p, s, i, p.slides.length); ctx.restore();
+  });
+}
+function hasPhoto(s){ return !s.textOnly && (!!srcOf(s.img) || (s.layout === "split" && !!srcOf(s.img2))); }
+
+function sortedPosts(){
+  return [...state.posts.values()].filter(p => (p.format || "carousel") === state.fmt).sort((a, b) => (a.date||"9999").localeCompare(b.date||"9999") || DAY_ORDER.indexOf(a.day) - DAY_ORDER.indexOf(b.day) || a.title.localeCompare(b.title));
+}
+function renderList(){
+  const list = $("#postList"), posts = sortedPosts();
+  if (!posts.length){ list.innerHTML = `<p class="help" style="padding:6px 8px">No posts yet.</p>`; return; }
+  let html = "", lastWeek = "";
+  for (const p of posts){
+    const wk = p.date ? weekOf(p.date) : "Undated";
+    if (wk !== lastWeek){ html += `<div class="week">${esc(wk)}</div>`; lastWeek = wk; }
+    const t = themeOf(p);
+    html += `<button class="post-item" data-id="${esc(p.id)}" aria-current="${p.id === state.currentId}">
+      <span class="dot" style="--c:${esc(t.accent)}"></span>
+      <span class="pi-main"><span class="pi-date">${esc(fmtDate(p.date))} · ${esc(t.pillar)}</span><span class="pi-title">${esc(p.title)}</span></span>
+      <span class="pi-meta">${p.format === "reel" ? `<span class="chip-st" data-s="reel">Reel</span> ` : ""}<span class="chip-st" data-s="${esc(p.status)}">${esc(STATUS[p.status] || "Draft")}</span></span>
+    </button>`;
+  }
+  list.innerHTML = html;
+}
+function dayOptions(sel){ return DAY_ORDER.map(d => `<option value="${d}"${d === sel ? " selected" : ""}>${DAYS[d].name} · ${DAYS[d].pillar}</option>`).join(""); }
+function renderStage(){
+  const st = $("#stage"), p = cur();
+  if (!p){
+    st.innerHTML = `<div class="empty-stage">
+      <span class="eyebrow">${state.mode === "loading" ? "Loading posts" : "No post open"}</span>
+      <h2>${state.mode === "loading" ? "Fetching your saved carousels…" : "Pick a post, or start one from a day template."}</h2>
+      <p>Posts the content team queues show up here. You can also start one with <b>+ New</b> and add photos yourself.</p>
+    </div>`;
+    return;
+  }
+  const n = p.slides.length, reel = p.format === "reel";
+  st.innerHTML = `
+    <div class="post-head">
+      <input type="text" class="title-input" id="postTitle" value="${esc(p.title)}" aria-label="Post title" data-pk="title">
+      <div class="meta-row">
+        <label class="f">Pillar<select id="postDay" data-pk="day">${dayOptions(p.day)}</select></label>
+        <label class="f">Date<input type="date" id="postDate" value="${esc(p.date)}" data-pk="date"></label>
+        <label class="f">Status<select id="postStatus" data-pk="status">${Object.entries(STATUS).map(([k,v])=>`<option value="${k}"${k===p.status?" selected":""}>${v}</option>`).join("")}</select></label>
+      </div>
+    </div>
+    <div class="viewer">
+      ${reel ? "<span></span>" : `<button class="nav" id="prevSlide" aria-label="Previous slide"${state.slideIdx <= 0 ? " disabled" : ""}>‹</button>`}
+      <div class="canvas-wrap"><canvas id="preview" width="${W}" height="${postH(p)}" style="aspect-ratio:${W}/${postH(p)}" role="img" aria-label="Slide preview"></canvas></div>
+      ${reel ? "<span></span>" : `<button class="nav" id="nextSlide" aria-label="Next slide"${state.slideIdx >= n-1 ? " disabled" : ""}>›</button>`}
+    </div>
+    <div class="viewer-foot"><span>${reel ? "Reel cover · 1080 × 1440" : `Slide ${state.slideIdx+1} of ${n}`}</span><span>${hasPhoto(curSlide()||{}) ? "Drag the photo to move it" : "No photo on this slide"}</span></div>
+    ${photoBar(curSlide())}
+    ${reel ? "" : `<div class="strip" id="strip">
+      ${p.slides.map((s, i) => `<button class="thumb" data-i="${i}" aria-current="${i === state.slideIdx}" aria-label="Slide ${i+1}"><canvas width="216" height="${Math.round(216*postH(p)/W)}" style="aspect-ratio:${W}/${postH(p)}"></canvas><span>${pad2(i+1)}</span></button>`).join("")}
+      <div class="add-slide"><span>Add slide</span>
+        <select id="addLayout" aria-label="Layout for new slide">${Object.entries(LAYOUTS).map(([k,v])=>`<option value="${k}">${v}</option>`).join("")}</select>
+        <button class="btn sm" id="addSlideBtn">+ Add</button>
+      </div>
+    </div>`}
+    <div class="actions">
+      <button class="btn ghost sm" id="undoBtn" title="Undo (Ctrl/⌘ Z)">Undo</button>
+      <button class="btn ghost sm" id="redoBtn" title="Redo (Shift Ctrl/⌘ Z)">Redo</button>
+      <label class="toggle hint"><input type="checkbox" id="guidesChk" ${state.guides ? "checked" : ""}> Show guides</label>
+      ${reel ? `<button class="btn primary" id="dlSlide">Download cover (PNG)</button>` : `<button class="btn" id="dlSlide">Download this slide</button>
+      <button class="btn primary" id="dlZip">Download ZIP</button>`}
+    </div>`;
+  scheduleRender(true);
+}
+
+function photoBar(s){
+  if (!s) return "";
+  const slots = s.layout === "split" ? [["img", "Top still"], ["img2", "Bottom still"]] : [["img", "Photo"]];
+  return `<div class="photo-bar">${slots.map(([slot, l]) => { const src = srcOf(s[slot]); return `<div class="pb-item">
+    ${src ? `<img src="${esc(src)}" alt="">` : `<span class="pb-empty"></span>`}<span class="pb-l">${l}</span>
+    <label class="btn sm">${src ? "Change" : "+ Add photo"}<input type="file" accept="image/*" data-file="${slot}" hidden></label>
+    ${src ? `<button type="button" class="btn sm ghost" data-act="clear-img" data-slot="${slot}">Remove</button>` : ""}
+  </div>`; }).join("")}</div>`;
+}
+
+/* ---------- inspector ---------- */
+function field(label, key, val, o = {}){
+  const id = "f_" + key.replace(/\W/g, "_");
+  const count = o.count ? `<span class="count${words(val) > 15 ? " over" : ""}" data-count="${key}">${words(val)} / 15 words</span>` : "";
+  const fmt = o.fmt ? `<span class="fmt" role="toolbar" aria-label="Highlight the selected words">${[["*", "Colour"], ["**", "<b>Bold colour</b>"], ["==", "Box"]].map(([m, l]) => `<button type="button" class="btn sm" data-act="wrap" data-m="${m}" data-target="${id}">${l}</button>`).join("")}<button type="button" class="btn sm ghost" data-act="wrap" data-m="" data-target="${id}">Clear</button></span>` : "";
+  const ctl = o.area
+    ? `${fmt}<textarea id="${id}" rows="${o.rows || 3}" data-k="${key}" placeholder="${esc(o.ph || "")}">${esc(val)}</textarea>`
+    : `<input type="text" id="${id}" data-k="${key}" value="${esc(val)}" placeholder="${esc(o.ph || "")}">`;
+  return `<label class="f" for="${id}">${label}${ctl}${count}</label>`;
+}
+function seg(key, opts, val){
+  return `<div class="seg" data-seg="${key}">${opts.map(([v, l]) => `<button type="button" data-v="${esc(v)}" class="${String(val) === String(v) ? "on" : ""}">${l}</button>`).join("")}</div>`;
+}
+function slider(label, key, val, min, max, step){
+  return `<label class="sl">${label}<input type="range" data-k="${key}" data-num="1" min="${min}" max="${max}" step="${step}" value="${val}"></label>`;
+}
+function picker(p, s, slot, label){
+  const ref = s[slot], src = srcOf(ref), sfx = slot === "img2" ? "2" : "";
+  const lib = p.photos.length ? `<div class="lib">${p.photos.map((r, i) => `<button type="button" data-act="use-photo" data-slot="${slot}" data-i="${i}" class="${ref && ((r.id && r.id === ref.id) || (r.src && r.src === ref.src)) ? "on" : ""}" aria-label="Use photo ${i+1}"><img src="${esc(srcOf(r))}" alt=""></button>`).join("")}</div>` : "";
+  return `<div class="picker">
+    <div class="pk-head"><span>${label}</span></div>
+    <label class="drop${src ? " has" : ""}" data-drop="${slot}">${src ? `<img src="${esc(src)}" alt="">` : `<span>No photo on this slide.<br>Drop one here or <u>browse</u></span>`}<input type="file" accept="image/*" multiple data-file="${slot}" hidden></label>
+    <div class="pk-actions">
+      <label class="btn sm">${src ? "Change photo" : "+ Add photo"}<input type="file" accept="image/*" data-file="${slot}" hidden></label>
+      ${src ? `<button type="button" class="btn sm danger" data-act="clear-img" data-slot="${slot}">Remove photo</button>` : ""}
+    </div>
+    ${lib ? `<span class="help">Or pick one already in this post:</span>${lib}` : ""}
+    ${src ? slider("Left–right", "fx" + sfx, s["fx" + sfx], 0, 1, .01) + slider("Up–down", "fy" + sfx, s["fy" + sfx], 0, 1, .01) + slider("Zoom", "zoom" + sfx, s["zoom" + sfx], 1, 2.5, .01) : ""}
+  </div>`;
+}
+const FONT_PREVIEW = {sans:"font-family:Montserrat;font-weight:800", tall:"font-family:Anton", caps:"font-family:'Bebas Neue';font-size:15px", xtall:"font-family:'League Gothic';font-size:16px", cond:"font-family:Oswald;font-weight:700", heavy:"font-family:'Archivo Black'", round:"font-family:Poppins;font-weight:800",
+  bold:"font-family:'DM Serif Display';font-style:italic;font-size:14px", chunky:"font-family:Fraunces;font-style:italic;font-weight:800", classic:"font-family:'Instrument Serif';font-style:italic;font-size:15px"};
+function hlFontChoices(){
+  return [...Object.entries(FAMS).map(([k, F]) => [k, F.name, FONT_PREVIEW[k]]),
+          ...Object.entries(HI_FONTS).filter(([k]) => k !== "same").map(([k, F]) => [k, `${F.name} italic`, FONT_PREVIEW[k]])];
+}
+function bgPicker(p, scope, ref, label, note){
+  const src = srcOf(ref), slot = scope === "post" ? "post:bgImg" : "bgImg";
+  const lib = p.photos.length ? `<div class="lib">${p.photos.map((r, i) => `<button type="button" data-act="use-bg" data-scope="${scope}" data-i="${i}" class="${ref && ((r.id && r.id === ref.id) || (r.src && r.src === ref.src)) ? "on" : ""}" aria-label="Use photo ${i+1} as background"><img src="${esc(srcOf(r))}" alt=""></button>`).join("")}</div>` : "";
+  return `<div class="picker">
+    <div class="pk-head"><span>${label}</span></div>
+    <label class="drop${src ? " has" : ""}" data-drop="${slot}">${src ? `<img src="${esc(src)}" alt="">` : `<span>${note}<br>Drop an image here or <u>browse</u></span>`}<input type="file" accept="image/*" data-file="${slot}" hidden></label>
+    <div class="pk-actions">
+      <label class="btn sm">${src ? "Change image" : "+ Add image"}<input type="file" accept="image/*" data-file="${slot}" hidden></label>
+      ${src ? `<button type="button" class="btn sm danger" data-act="clear-bg" data-scope="${scope}">Remove</button>` : ""}
+    </div>
+    ${lib ? `<span class="help">Or use one already in this post:</span>${lib}` : ""}
+  </div>`;
+}
+function inspSlide(){
+  const p = cur(), s = curSlide();
+  if (!p || !s) return `<p class="help">Open a post to edit its slides.</p>`;
+  const reel = p.format === "reel", L = reel ? "photo" : s.layout, parts = [];
+  if (reel){
+    parts.push(`<section class="grp"><h3>Cover template</h3>
+      <div class="tpl-grid">${Object.entries(REEL_TPLS).map(([k, T]) => `<button type="button" class="tpl${s.tpl === k ? " on" : ""}" data-act="tpl" data-v="${k}"><canvas width="216" height="288" data-tpl="${k}"></canvas><span>${T.name}</span></button>`).join("")}</div>
+      <p class="help">A template restyles the cover and keeps your photo and words. Fine-tune anything below.</p>
+      <button type="button" class="btn sm ghost" data-act="save-preset">Save this look for new reel covers</button>
+      ${state.presets.reel ? `<button type="button" class="link" data-act="clear-preset" style="align-self:flex-start">Forget the saved look for reel covers</button>` : ""}
+    </section>`);
+  } else parts.push(`<section class="grp"><h3>Layout</h3>
+    ${seg("layout", Object.entries(LAYOUTS), L)}
+    <button type="button" class="btn sm" data-act="look-all" title="Copies font, sizes, spacing, colours, fades, shadow and arrow">Use this slide's look on every slide</button>
+    <button type="button" class="btn sm ghost" data-act="save-preset">Save this look for new ${presetLabel(presetKey(p))}</button>
+    ${state.presets[presetKey(p)] ? `<button type="button" class="link" data-act="clear-preset" style="align-self:flex-start">Forget the saved look for ${presetLabel(presetKey(p))}</button>` : ""}
+  </section>`);
+  const anyPhoto = hasPhoto(s);
+  parts.push(`<section class="grp"><h3>${L === "split" ? "Photos" : "Photo"}</h3>
+    ${L === "split" ? picker(p, s, "img", "Top still") + picker(p, s, "img2", "Bottom still") : picker(p, s, "img", L === "step" ? "Background photo (faded)" : L === "cta" ? "Background photo (darkened)" : "Photo")}
+    ${anyPhoto ? `<div><span class="help">Black &amp; white</span> ${seg("bw", [["auto", "Day default"], ["on", "On"], ["off", "Off"]], s.bw === true ? "on" : s.bw === false ? "off" : "auto")}</div>
+    ${slider("Fade", "fade", s.fade ?? 1, 0, 2, .01)}
+    ${L === "photo" || L === "split" ? slider("Fade height", "fadeH", s.fadeH ?? .64, .2, 1, .01) : ""}
+    <div class="swatches"><span class="help">Fade colour</span>
+      ${BRAND.map(b => `<button type="button" class="sw${(s.fadeColor || themeOf(p).base).toUpperCase() === b.c ? " on" : ""}" style="--c:${b.c}" data-act="set-color" data-key="fadeColor" data-c="${b.c}" aria-label="${b.n}" title="${b.n}"></button>`).join("")}
+      <input type="color" data-k="fadeColor" value="${esc(s.fadeColor || themeOf(p).base)}" aria-label="Custom fade colour">
+      ${s.fadeColor ? `<button type="button" class="link" data-act="set-color" data-key="fadeColor" data-c="">Reset</button>` : ""}</div>
+    ${L === "photo" || L === "split" ? `<label class="toggle"><input type="checkbox" data-act-check="topFade" ${(s.topFade ?? .55) > 0 ? "checked" : ""}> Top shade (behind the label and logo)</label>
+    ${(s.topFade ?? .55) > 0 ? slider("Top shade", "topFade", s.topFade ?? .55, .05, 1, .01) : ""}` : ""}
+    ${slider("Text shadow", "shadow", s.shadow ?? .45, 0, 1, .01)}
+    <div class="swatches"><span class="help">Shadow colour</span>
+      ${BRAND.map(b => `<button type="button" class="sw${(s.shadowColor || "#000000").toUpperCase() === b.c ? " on" : ""}" style="--c:${b.c}" data-act="set-color" data-key="shadowColor" data-c="${b.c}" aria-label="${b.n}" title="${b.n}"></button>`).join("")}
+      <input type="color" data-k="shadowColor" value="${esc(s.shadowColor || "#000000")}" aria-label="Custom shadow colour">
+      ${s.shadowColor ? `<button type="button" class="link" data-act="set-color" data-key="shadowColor" data-c="">Reset</button>` : ""}</div>
+    <p class="help">Fade darkens the photo behind the text; push it to the end for a solid block. Fade height sets how far up it reaches.</p>` : ""}
+  </section>`);
+  if (!reel) parts.push(`<section class="grp"><h3>Background</h3>
+    ${bgPicker(p, "slide", s.bgImg, "This slide's background", p.bgImg ? "Using the post's background image." : "Plain colour right now.")}
+    ${(s.bgImg || p.bgImg) ? slider("Darken", "bgDim", s.bgDim ?? p.bgDim ?? .55, 0, 1, .01) : ""}
+    <p class="help">Shows wherever the slide has no photo. To use one image on every slide, set it in Post → Background image.</p>
+  </section>`);
+  if (L === "photo" || L === "step"){
+    const bf = s.badgeColor || themeOf(p).accent;
+    parts.push(`<section class="grp"><h3>Badge</h3>
+      ${field("Badge text", "badge", s.badge, {ph:"e.g. Exclusive"})}
+      <div class="swatches">${BADGES.map(b => `<button type="button" class="btn sm${s.badge === b ? " primary" : ""}" data-act="badge" data-v="${esc(b)}">${b}</button>`).join("")}</div>
+      ${s.badge ? `${seg("badgePos", [["above", "Above the text"], ["top-left", "Top left"]], s.badgePos || "above")}
+      <div class="swatches"><span class="help">Badge colour</span>
+        ${BRAND.map(b => `<button type="button" class="sw${bf.toUpperCase() === b.c ? " on" : ""}" style="--c:${b.c}" data-act="set-color" data-key="badgeColor" data-c="${b.c}" aria-label="${b.n}" title="${b.n}"></button>`).join("")}
+        <input type="color" data-k="badgeColor" value="${esc(bf)}" aria-label="Custom badge colour"></div>
+      <button type="button" class="link" data-act="badge" data-v="" style="align-self:flex-start">Remove badge</button>` : `<p class="help">Optional. Pick one or type your own.</p>`}
+    </section>`);
+  }
+  const txt = [];
+  if (L === "split"){
+    txt.push(field("Top label", "tag", s.tag, {ph:"e.g. Derrick"}));
+    txt.push(field("Top text", "headline", s.headline, {area:true, count:true, fmt:true}));
+    txt.push(field("Bottom label", "tag2", s.tag2, {ph:"e.g. Guest name or Watch this"}));
+    txt.push(field("Bottom text", "text2", s.text2, {area:true, count:true, fmt:true}));
+  } else if (L === "step"){
+    txt.push(`<div class="row2">${field("Label", "tag", s.tag, {ph:"Step"})}${field("Number", "num", s.num, {ph:"1"})}</div>`);
+    txt.push(slider("Number opacity", "numAlpha", s.numAlpha ?? .22, 0, 1, .01) + slider("Number size", "numScale", s.numScale || 1, .4, 1.4, .01));
+    txt.push(field("Step text", "headline", s.headline, {area:true, count:true, fmt:true}));
+    txt.push(field("Small line", "sub", s.sub, {area:true, rows:2, fmt:true}));
+  } else if (L === "cta"){
+    txt.push(field("Call to action", "headline", s.headline, {area:true, count:true, fmt:true}));
+    txt.push(field("Small line", "sub", s.sub, {area:true, rows:2, fmt:true}));
+    txt.push(field("Handle", "handle", s.handle, {ph:"@konnectedminds"}));
+  } else {
+    txt.push(field("Tag above the text", "tag", s.tag, {ph:"e.g. The turning point"}));
+    txt.push(field(reel || s.isCover ? "Cover hook" : "Main text", "headline", s.headline, {area:true, count:true, fmt:true}));
+    txt.push(field("Small line under it", "sub", s.sub, {area:true, rows:2, fmt:true}));
+  }
+  parts.push(`<section class="grp"><h3>Text</h3>${txt.join("")}
+    <p class="help">To highlight, select words in a text box and click Colour, <b>Bold colour</b> or Box. Click a word without selecting to highlight just that word. Highlighted words use the headline font unless you pick an italic style below.</p>
+    <div class="swatches"><span class="help">Highlight colour</span>
+      <button type="button" class="btn sm${s.boxColor ? "" : " primary"}" data-act="box-color" data-c="">Day colour</button>
+      ${BRAND.map(b => `<button type="button" class="sw${(s.boxColor||"").toUpperCase() === b.c ? " on" : ""}" style="--c:${b.c}" data-act="box-color" data-c="${b.c}" aria-label="${b.n}" title="${b.n}"></button>`).join("")}
+      <input type="color" data-k="boxColor" value="${esc(s.boxColor || themeOf(p).accent)}" aria-label="Custom highlight colour">
+    </div>
+    <div><span class="help">Font</span> ${seg("font", Object.entries(FAMS).map(([k, F]) => [k, F.name]), s.font || "sans")}</div>
+    <div><span class="help">Weight</span> ${seg("weight", WEIGHTS, s.weight || "")}</div>
+    <label class="toggle"><input type="checkbox" data-k="caps" ${s.caps ? "checked" : ""}> ALL CAPS headline</label>
+    <div class="swatches"><span class="help">Text colour</span>
+      ${BRAND.map(b => `<button type="button" class="sw${(s.textColor || "#FFFFFF").toUpperCase() === b.c ? " on" : ""}" style="--c:${b.c}" data-act="set-color" data-key="textColor" data-c="${b.c === "#FFFFFF" ? "" : b.c}" aria-label="${b.n}" title="${b.n}"></button>`).join("")}
+      <input type="color" data-k="textColor" value="${esc(s.textColor || "#FFFFFF")}" aria-label="Custom text colour"></div>
+    <div><span class="help">Highlighted words</span> ${seg("hlMode", [["same", "Same font as headline"], ["change", "Different font"]], (s.hlStyle || "same") === "same" ? "same" : "change")}</div>
+    ${(s.hlStyle || "same") !== "same" ? `<div class="seg font-pick" data-seg="hlStyle">${hlFontChoices().map(([k, label, css]) => `<button type="button" data-v="${k}" class="${s.hlStyle === k ? "on" : ""}" style="${css}">${label}</button>`).join("")}</div>` : ""}
+    ${slider("Highlight size", "hiScale", s.hiScale || 1, .8, 2.6, .01)}
+    ${slider("Text size", "scale", s.scale || 1, .7, 1.5, .01)}
+    ${slider("Line spacing", "lh", s.lh || 1, .75, 1.6, .01)}
+    ${slider("Letter spacing", "track", s.track || 0, -4, 14, .5)}
+    <button type="button" class="link" data-act="reset-type" style="align-self:flex-start">Reset size and spacing</button>
+    ${L === "photo" ? seg("align", [["center", "Centred"], ["left", "Left"]], s.align) : ""}
+    ${L === "photo" ? `<div><span class="help">Text position</span> ${seg("textPos", [["top", "Top"], ["middle", "Middle"], ["bottom", "Bottom"]], s.textPos || (hasPhoto(s) ? "bottom" : "middle"))}</div>` : ""}
+  </section>`);
+  if (L === "photo" || L === "split"){
+    parts.push(`<section class="grp"><h3>Guest chip</h3>
+      <div class="row2">${field("Name", "chip.name", s.chip.name, {ph:"Guest name"})}${field("Title", "chip.title", s.chip.title, {ph:"What they do"})}</div>
+      ${L === "photo" ? seg("chipPos", [["above", "Above text"], ["top-left", "Top left"], ["top-right", "Top right"]], s.chipPos) : `<p class="help">Shows on the bottom still.</p>`}
+    </section>`);
+  }
+  if (reel){
+    parts.push(`<section class="grp"><h3>Cover</h3>
+      <label class="toggle"><input type="checkbox" data-k="showLogo" ${s.showLogo !== false ? "checked" : ""}> Show the logo (top right)</label>
+    </section>`);
+    return parts.join("");
+  }
+  parts.push(`<section class="grp"><h3>Slide</h3>
+    ${L === "photo" ? `<label class="toggle"><input type="checkbox" data-k="isCover" ${s.isCover ? "checked" : ""}> Cover slide (bigger hook)</label>` : ""}
+    ${L === "photo" && s.isCover ? `<label class="toggle"><input type="checkbox" data-k="coverArrow" ${s.coverArrow !== false ? "checked" : ""}> Hand-drawn arrow under the hook</label>` : ""}
+    <label class="toggle"><input type="checkbox" data-k="arrow" ${arrowShown(s, state.slideIdx, p.slides.length, p) ? "checked" : ""}> Swipe arrow (bottom right)</label>
+    ${arrowShown(s, state.slideIdx, p.slides.length, p) ? `<div class="swatches"><span class="help">Arrow colour</span>
+      ${BRAND.map(b => `<button type="button" class="sw${(s.arrowColor || "#FFFFFF").toUpperCase() === b.c ? " on" : ""}" style="--c:${b.c}" data-act="arrow-color" data-c="${b.c}" aria-label="${b.n}" title="${b.n}"></button>`).join("")}
+      <input type="color" data-k="arrowColor" value="${esc(s.arrowColor || "#FFFFFF")}" aria-label="Custom arrow colour">
+      <button type="button" class="link" data-act="arrow-all">Use on every slide</button></div>` : ""}
+    <label class="toggle"><input type="checkbox" data-k="hideLabel" ${s.hideLabel ? "checked" : ""}> Hide the pillar label</label>
+    ${L !== "cta" ? `<label class="toggle"><input type="checkbox" data-k="showLogo" ${logoShown(s, state.slideIdx, p.slides.length, p) ? "checked" : ""}> Show the logo (top right)</label>` : ""}
+    <div class="slide-actions">
+      <button type="button" class="btn sm" data-act="dup">Duplicate</button>
+      <button type="button" class="btn sm" data-act="left"${state.slideIdx === 0 ? " disabled" : ""}>Move left</button>
+      <button type="button" class="btn sm" data-act="right"${state.slideIdx >= p.slides.length - 1 ? " disabled" : ""}>Move right</button>
+      <button type="button" class="btn sm danger" data-act="del-slide">${state.confirm === "slide" ? "Click again to delete" : "Delete slide"}</button>
+    </div>
+  </section>`);
+  return parts.join("");
+}
+function inspPost(){
+  const p = cur(); if (!p) return `<p class="help">Open a post to change its settings.</p>`;
+  const d = DAYS[p.day], t = themeOf(p);
+  const sw = key => `<div class="swatches">${BRAND.map(b => `<button type="button" class="sw${t[key === "accent" ? "accent" : "base"].toUpperCase() === b.c ? " on" : ""}" style="--c:${b.c}" data-act="swatch" data-key="${key}" data-c="${b.c}" aria-label="${b.n}" title="${b.n}"></button>`).join("")}
+    <input type="color" data-color="${key}" value="${key === "accent" ? t.accent : t.base}" aria-label="Custom colour"></div>`;
+  return `
+  <section class="grp"><h3>Format</h3>
+    <div class="seg">${[["carousel", "Carousel · 1080 × 1350"], ["reel", "Reel cover · 1080 × 1440"]].map(([v, l]) => `<button type="button" data-act="post-format" data-v="${v}" class="${(p.format || "carousel") === v ? "on" : ""}">${l}</button>`).join("")}</div>
+    ${p.format === "reel" ? `<p class="help">One static image at 1080 × 1440, the size your profile grid shows. Pick a cover template in the Slide tab.</p>` : ""}
+  </section>
+  ${p.format === "reel" ? "" : `<section class="grp"><h3>Pillar label</h3>
+    ${field("Label on the slides", "label", p.label, {ph:d.pillar})}
+    <label class="toggle"><input type="checkbox" data-pk="showCounter" ${p.showCounter ? "checked" : ""}> Show slide counter (01 / 07)</label>
+  </section>`}
+  <section class="grp"><h3>Margins</h3>
+    <label class="sl">Side margin<input type="range" data-pk="margin" data-num="1" min="60" max="170" step="2" value="${p.margin ?? MARGIN}"></label>
+    <p class="help">Keeps text, labels, the logo and the arrow this far from the edges on every slide. ${MARGIN}px is the default. Turn on "Show guides" under the slide to see the safe area.</p>
+  </section>
+  <section class="grp"><h3>Colours</h3>
+    <p class="help">${d.name} uses its own highlight and background. Change them for this post only.</p>
+    <span class="help">Highlight</span>${sw("accent")}
+    <span class="help">Background</span>${sw("base")}
+    ${p.theme && (p.theme.accent || p.theme.base) ? `<button type="button" class="btn sm" data-act="reset-theme">Back to ${d.name} colours</button>` : ""}
+  </section>
+  <section class="grp"><h3>Background image</h3>
+    ${bgPicker(p, "post", p.bgImg, "Post background", "Plain colour right now.")}
+    ${p.bgImg ? `<label class="sl">Darken<input type="range" data-pk="bgDim" data-num="1" min="0" max="1" step=".01" value="${p.bgDim ?? .55}"></label>` : ""}
+    <p class="help">Sits behind every slide that has no photo, like text-only quotes, the closing CTA and empty halves of two-still slides. Try a texture, a branded backdrop or a soft set photo. Darken tints it with the background colour so text stays readable.</p>
+  </section>
+  <section class="grp"><h3>Photos in this post</h3>
+    <label class="drop" data-drop="lib"><span>Drop photos here or <u>browse</u>. They'll show up in every slide's photo picker.</span><input type="file" accept="image/*" multiple data-file="lib" hidden></label>
+    ${p.photos.length ? `<div class="lib">${p.photos.map((r, i) => `<button type="button" data-act="lib-remove" data-i="${i}" aria-label="Remove photo ${i+1} from this post" title="Remove from post"><img src="${esc(srcOf(r))}" alt=""></button>`).join("")}</div><p class="help">Click a photo to take it out of this post's list.</p>` : ""}
+  </section>
+  <section class="grp"><h3>Caption</h3>
+    <textarea rows="9" data-pk="caption" id="postCaption">${esc(p.caption)}</textarea>
+    <button type="button" class="btn sm" data-act="copy-caption">Copy caption</button>
+  </section>
+  <section class="grp"><h3>Reuse</h3>
+    <button type="button" class="btn sm" data-act="dup-post">Duplicate this post</button>
+    <p class="help">Copies every slide, photo and setting into a new draft. Handy for next week's version of a pillar.</p>
+  </section>
+  <section class="grp"><h3>Danger zone</h3>
+    <button type="button" class="btn sm danger" data-act="del-post">${state.confirm === "post" ? "Click again to delete this post" : "Delete post"}</button>
+  </section>`;
+}
+function renderInspector(){
+  $("#tabSlide").setAttribute("aria-selected", state.tab === "slide");
+  $("#tabPost").setAttribute("aria-selected", state.tab === "post");
+  $("#insp").innerHTML = state.tab === "slide" ? inspSlide() : inspPost();
+  if (document.querySelector("canvas[data-tpl]")) renderThumbs();
+}
+function setFmt(f){
+  if (f === state.fmt) return;
+  state.fmt = f;
+  if (window.KH) KH.rememberFormat(f);
+  $("#newForm").hidden = true; $("#newPostBtn").setAttribute("aria-expanded", "false");
+  state.currentId = pickDefaultPost(); state.slideIdx = 0; state.confirm = null;
+  if (state.currentId && !hist[state.currentId]) histInit(state.currentId);
+  renderAll();
+}
+// Role rules live in js/kh.js; the page only reflects them (Firestore rules enforce them).
+function syncAccess(){
+  const p = cur();
+  state.readOnly = !!(window.KH && p && !KH.canEdit(p));
+  document.querySelectorAll("#fmtSeg [data-fmt]").forEach(b => { const on = b.dataset.fmt === state.fmt; b.classList.toggle("on", on); b.setAttribute("aria-selected", String(on)); });
+  const nb = $("#newPostBtn"); if (nb) nb.hidden = !!(window.KH && !KH.canCreate(state.fmt));
+}
+function renderAll(){ syncAccess(); renderList(); renderStage(); renderInspector(); renderSave(); renderBanner(); }
+
+/* ---------- save state ---------- */
+function renderSave(){
+  const el = $("#saveState"); let s = "ok", txt = "All changes saved";
+  if (state.mode === "loading"){ s = "busy"; txt = "Connecting…"; }
+  else if (state.mode === "local"){ s = "bad"; txt = "Working locally · not saved"; }
+  else if (state.readOnly){ s = "bad"; txt = "View only · changes aren't saved"; }
+  else if (state.saveError){ s = "bad"; txt = "Couldn't save. Your next change will try again."; }
+  else if (state.dirty.size || state.saving.size){ s = "busy"; txt = "Saving…"; }
+  else if (state.stale){ s = "busy"; txt = "Can't reach saved posts yet"; }
+  el.dataset.s = s; el.querySelector("span").textContent = txt;
+}
+function renderBanner(){
+  const b = $("#banner");
+  if (state.mode === "local") b.innerHTML = `<div class="banner">Can't reach the saved posts, so edits last only until you close the tab. Check your connection and reload.</div>`;
+  else if (state.readOnly && cur()) b.innerHTML = `<div class="banner">You can look at this ${cur().format === "reel" ? "reel cover" : "carousel"} and download it. Changes you make here aren't saved.</div>`;
+  else b.innerHTML = "";
+}
+const timers = {}, hist = {};
+let histTimer = 0;
+function histOf(pid){ return hist[pid] || (hist[pid] = {undo:[], redo:[], last:null}); }
+function snapStr(p){ const o = Object.assign({}, p); delete o.updatedAt; return JSON.stringify(o); }
+function histInit(pid){ const p = state.posts.get(pid); if (p) histOf(pid).last = snapStr(p); }
+function histRecord(pid){
+  const p = state.posts.get(pid), h = histOf(pid); if (!p) return;
+  const now = snapStr(p);
+  if (h.last === null){ h.last = now; return; }
+  if (now === h.last) return;
+  h.undo.push(h.last); if (h.undo.length > 80) h.undo.shift();
+  h.redo = []; h.last = now;
+}
+function undoRedo(dir){
+  const p = cur(); if (!p) return;
+  clearTimeout(histTimer); histRecord(p.id);
+  const h = histOf(p.id), from = dir < 0 ? h.undo : h.redo, to = dir < 0 ? h.redo : h.undo;
+  if (!from.length){ toast(dir < 0 ? "Nothing to undo." : "Nothing to redo."); return; }
+  to.push(h.last); h.last = from.pop();
+  state.posts.set(p.id, normPost(p.id, JSON.parse(h.last)));
+  state.slideIdx = clamp(state.slideIdx, 0, cur().slides.length - 1);
+  renderAll(); touch(p.id, false, true);
+}
+function touch(pid, full, noHist){
+  const p = state.posts.get(pid); if (!p) return;
+  if (!noHist){ clearTimeout(histTimer); histTimer = setTimeout(() => histRecord(pid), 450); }
+  p.updatedAt = Date.now();
+  if (state.mode !== "db" || state.readOnly) { renderSave(); return; }
+  state.dirty.add(pid); renderSave();
+  clearTimeout(timers[pid]); timers[pid] = setTimeout(() => flush(pid), full ? 50 : 800);
+}
+function cleanPost(p){
+  const o = JSON.parse(JSON.stringify(p, (k, v) => (k === "src" && typeof v === "string" && v.startsWith("blob:")) ? undefined : v));
+  delete o.id;
+  const fix = r => (r && r.id) ? {id: r.id} : null;
+  o.photos = (o.photos || []).map(fix).filter(Boolean);
+  o.bgImg = fix(o.bgImg);
+  o.slides.forEach(s => { s.img = fix(s.img); s.img2 = fix(s.img2); s.bgImg = fix(s.bgImg); });
+  return o;
+}
+async function flush(pid){
+  if (state.saving.has(pid)){ timers[pid] = setTimeout(() => flush(pid), 400); return; }
+  const p = state.posts.get(pid); if (!p){ state.dirty.delete(pid); renderSave(); return; }
+  state.dirty.delete(pid); state.saving.add(pid); renderSave();
+  try {
+    await state.db.collection("posts").doc(pid).set(cleanPost(p));
+    state.saveError = false;
+  } catch(e){
+    if (e && e.code === "invalid_argument") state.readOnly = true;
+    else state.saveError = true;
+  } finally {
+    state.saving.delete(pid); renderSave();
+  }
+}
+async function removePost(pid){
+  state.posts.delete(pid); state.dirty.delete(pid);
+  if (state.mode === "db" && !state.readOnly){ try { await state.db.collection("posts").doc(pid).delete(); } catch(e){ toast("Couldn't delete the post. Try again."); } }
+}
+
+/* ---------- toast ---------- */
+let toastT = 0;
+function toast(msg){ const t = $("#toast"); t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => { t.hidden = true; }, 3800); }
+
+/* ---------- selection ---------- */
+function openPost(id, idx = 0){
+  const target = state.posts.get(id); if (target && target.format === "reel") idx = 0;
+  state.currentId = id; state.slideIdx = idx; state.confirm = null;
+  const p = cur(); if (p){ entry(p.bgImg); p.slides.forEach(s => { entry(s.img); entry(s.img2); entry(s.bgImg); }); if (!hist[id]) histInit(id); }
+  renderAll();
+}
+function goSlide(i){
+  const p = cur(); if (!p) return;
+  if (p.format === "reel") i = 0;
+  state.slideIdx = clamp(i, 0, p.slides.length - 1); state.confirm = null;
+  renderStage(); if (state.tab === "slide") renderInspector();
+}
+function pickDefaultPost(){
+  const posts = sortedPosts(); if (!posts.length) return null;
+  const today = todayISO();
+  return (posts.find(p => p.date >= today && p.status !== "posted") || posts.find(p => p.date >= today) || posts[posts.length - 1]).id;
+}
+
+/* ---------- editing ---------- */
+function setPath(obj, path, val){ const ks = path.split("."); let o = obj; ks.slice(0, -1).forEach(k => { o[k] = o[k] || {}; o = o[k]; }); o[ks[ks.length - 1]] = val; }
+function onSlideField(el){
+  const p = cur(), s = curSlide(); if (!p || !s) return;
+  const k = el.dataset.k;
+  let v = el.type === "checkbox" ? el.checked : el.value;
+  if (el.dataset.num) v = parseFloat(v);
+  setPath(s, k, v);
+  const cnt = document.querySelector(`[data-count="${k}"]`);
+  if (cnt){ const n = words(v); cnt.textContent = `${n} / 15 words`; cnt.classList.toggle("over", n > 15); }
+  if (el.type === "checkbox") renderInspector();
+  scheduleRender(true); touch(p.id);
+}
+function onPostField(el){
+  const p = cur(); if (!p) return;
+  const k = el.dataset.pk; let v = el.type === "checkbox" ? el.checked : el.value;
+  if (el.dataset.num) v = parseFloat(v);
+  p[k] = v;
+  if (k === "day"){ renderAll(); }
+  else if (k === "date" || k === "status" || k === "title"){ renderList(); }
+  scheduleRender(true); touch(p.id);
+}
+function onPostLabel(el){ const p = cur(); if (!p) return; p.label = el.value; renderList(); scheduleRender(true); touch(p.id); }
+
+async function addFiles(files, slot){
+  const p = cur(); if (!p) return;
+  const imgs = [...files].filter(f => /^image\//.test(f.type)); if (!imgs.length){ toast("Those files aren't images."); return; }
+  const refs = imgs.map(f => ({src: URL.createObjectURL(f), _file: f}));
+  refs.forEach(r => p.photos.push(r));
+  const s = curSlide();
+  if (slot && slot.startsWith("post:")) p[slot.slice(5)] = refs[0];
+  else if (slot === "bgImg" && s) s.bgImg = refs[0];
+  else if (slot && slot !== "lib" && s){
+    s[slot] = refs[0]; s.textOnly = false;
+    if (s.layout === "split" && slot === "img" && refs[1] && !srcOf(s.img2)) s.img2 = refs[1];
+    if (slot === "img") { s.fx = .5; s.fy = .3; s.zoom = 1; } else { s.fx2 = .5; s.fy2 = .3; s.zoom2 = 1; }
+  }
+  renderInspector(); renderStage();
+  if (!state.assets){
+    toast(state.mode === "db" ? "You can't upload photos here, so they'll stay in this tab only." : "Photos stay in this tab only while saving is off.");
+    refs.forEach(r => delete r._file); return;
+  }
+  toast(`Uploading ${refs.length} photo${refs.length > 1 ? "s" : ""}…`);
+  let ok = 0;
+  for (const r of refs){
+    try { const res = await state.assets.upload(r._file); r.id = res.id; ok++; }
+    catch(e){ toast(e && e.code === "too_large" ? "One photo is over 20 MB. Export a smaller copy and try again." : "A photo didn't upload. It stays in this tab only."); }
+    delete r._file;
+  }
+  if (ok) { toast(`${ok} photo${ok > 1 ? "s" : ""} saved.`); touch(p.id, true); }
+}
+
+/* ---------- export ---------- */
+async function renderToBlob(p, s, i){
+  await fontsReady; await Promise.all([loadImg(s.img), loadImg(s.img2), loadImg(s.bgImg), loadImg(p.bgImg)]);
+  const c = document.createElement("canvas"); c.width = W; c.height = postH(p);
+  drawSlide(c.getContext("2d"), p, s, i, p.slides.length);
+  return await new Promise((res, rej) => c.toBlob(b => b ? res(b) : rej(new Error("render")), "image/png"));
+}
+function fileBase(p){ return [p.date || "undated", p.day, p.format === "reel" ? "reel-cover" : "", slug(p.title)].filter(Boolean).join("_"); }
+async function saveFile(filename, data){
+  if (!state.downloads){ toast("Downloads aren't available in this view. Open the studio on claude.ai to download."); return false; }
+  try { await state.downloads.save({filename, data}); return true; }
+  catch(e){
+    const c = e && e.code;
+    if (c === "declined") toast("Download cancelled.");
+    else if (c === "rate_limited") toast("A download prompt is already open. Finish that one first.");
+    else toast("The download didn't start. Try again in a moment.");
+    return false;
+  }
+}
+async function exportZip(btn){
+  const p = cur(); if (!p) return;
+  if (typeof JSZip === "undefined"){ toast("The ZIP tool didn't load. Reload the page and try again."); return; }
+  btn.disabled = true; const label = btn.textContent;
+  try {
+    const zip = new JSZip(), base = fileBase(p);
+    for (let i = 0; i < p.slides.length; i++){
+      btn.textContent = `Rendering ${i+1} of ${p.slides.length}…`;
+      const s = p.slides[i];
+      zip.file(`${pad2(i+1)}_${slug(s.tag || s.headline)}.png`, await renderToBlob(p, s, i));
+    }
+    if (p.caption) zip.file("caption.txt", p.caption);
+    btn.textContent = "Zipping…";
+    const out = await zip.generateAsync({type:"blob"});
+    if (await saveFile(base + ".zip", out)) toast("ZIP saved.");
+  } catch(e){ toast("Couldn't build the ZIP. A photo may not have loaded."); }
+  finally { btn.disabled = false; btn.textContent = label; }
+}
+async function exportOne(btn){
+  const p = cur(), s = curSlide(); if (!p || !s) return;
+  btn.disabled = true;
+  try { const b = await renderToBlob(p, s, state.slideIdx); if (await saveFile(`${fileBase(p)}_${pad2(state.slideIdx+1)}.png`, b)) toast("Slide saved."); }
+  catch(e){ toast("Couldn't render this slide."); }
+  finally { btn.disabled = false; }
+}
+
+/* wrap the selected words (or the word at the cursor) in a highlight marker; m = "" clears markers */
+function wrapSel(ta, m){
+  const v = ta.value; let a = ta.selectionStart, b = ta.selectionEnd;
+  if (a === b){ while (a > 0 && /\S/.test(v[a-1])) a--; while (b < v.length && /\S/.test(v[b])) b++; }
+  while (a < b && /[\s“"‘(]/.test(v[a])) a++;
+  while (b > a && /[\s.,!?;:”"’)…]/.test(v[b-1])) b--;
+  if (a === b) return false;
+  for (const mk of ["==", "**", "*"]) if (v.slice(Math.max(0, a - mk.length), a) === mk && v.slice(b, b + mk.length) === mk){ a -= mk.length; b += mk.length; break; }
+  const inner = v.slice(a, b).replace(/==|\*/g, "");
+  const out = m ? m + inner + m : inner;
+  ta.value = v.slice(0, a) + out + v.slice(b);
+  ta.focus(); ta.setSelectionRange(a, a + out.length);
+  ta.dispatchEvent(new Event("input", {bubbles:true}));
+  return true;
+}
+
+/* ---------- events ---------- */
+function wire(){
+  $("#newDay").innerHTML = dayOptions(DAY_ORDER[(new Date().getDay() + 6) % 7]);
+  $("#newDate").value = todayISO();
+  $("#fmtSeg").addEventListener("click", e => { const b = e.target.closest("[data-fmt]"); if (b) setFmt(b.dataset.fmt); });
+  $("#newPostBtn").addEventListener("click", e => { const f = $("#newForm"); f.hidden = !f.hidden; e.currentTarget.setAttribute("aria-expanded", String(!f.hidden)); });
+  $("#newForm").addEventListener("submit", e => {
+    e.preventDefault();
+    const day = $("#newDay").value, date = $("#newDate").value;
+    const id = `${date || "undated"}-${day}-${uid().slice(0, 4)}`;
+    const format = state.fmt;
+    if (window.KH && !KH.canCreate(format)){ toast(`Your role can't start ${format === "reel" ? "reel covers" : "carousels"}.`); return; }
+    const slides = templateFor(day, format), look = state.presets[format === "reel" ? "reel" : day];
+    if (look) slides.forEach(x => Object.assign(x, clone(look)));
+    state.posts.set(id, normPost(id, {title: `${format === "reel" ? "Reel cover" : DAYS[day].pillar} · ${fmtDate(date)}`, format, date, day, status:"draft", slides, showCounter: format !== "reel" && day === "sun"}));
+    $("#newForm").hidden = true; $("#newPostBtn").setAttribute("aria-expanded", "false");
+    openPost(id); touch(id, true);
+  });
+  $("#postList").addEventListener("click", e => { const b = e.target.closest(".post-item"); if (b) openPost(b.dataset.id); });
+  $("#tabSlide").addEventListener("click", () => { state.tab = "slide"; state.confirm = null; renderInspector(); });
+  $("#tabPost").addEventListener("click", () => { state.tab = "post"; state.confirm = null; renderInspector(); });
+
+  const stage = $("#stage");
+  stage.addEventListener("click", e => {
+    const p = cur(); if (!p) return;
+    const th = e.target.closest(".thumb"); if (th) return goSlide(+th.dataset.i);
+    if (e.target.closest("#prevSlide")) return goSlide(state.slideIdx - 1);
+    if (e.target.closest("#nextSlide")) return goSlide(state.slideIdx + 1);
+    if (e.target.closest("#addSlideBtn")){
+      const layout = $("#addLayout").value;
+      const s = S({layout, headline: layout === "cta" ? DAYS[p.day].cta : layout === "split" ? "Top text" : "New slide text", text2: layout === "split" ? "Bottom text" : "", tag: layout === "step" ? "Step" : "", num: layout === "step" ? String(p.slides.filter(x => x.layout === "step").length + 1) : ""});
+      const at = p.slides.length && p.slides[p.slides.length - 1].layout === "cta" && layout !== "cta" ? p.slides.length - 1 : p.slides.length;
+      p.slides.splice(at, 0, s); state.slideIdx = at; renderStage(); renderInspector(); touch(p.id); return;
+    }
+    const clr = e.target.closest('[data-act="clear-img"]');
+    if (clr){ const s = curSlide(); if (s){ s[clr.dataset.slot] = null; renderStage(); renderInspector(); touch(p.id); } return; }
+    if (e.target.closest("#undoBtn")) return undoRedo(-1);
+    if (e.target.closest("#redoBtn")) return undoRedo(1);
+    if (e.target.closest("#dlZip")) return exportZip(e.target.closest("#dlZip"));
+    if (e.target.closest("#dlSlide")) return exportOne(e.target.closest("#dlSlide"));
+  });
+  stage.addEventListener("input", e => { if (e.target.dataset.pk) onPostField(e.target); });
+  stage.addEventListener("change", e => {
+    if (e.target.dataset.file){ addFiles(e.target.files, e.target.dataset.file); e.target.value = ""; return; }
+    if (e.target.id === "guidesChk"){ state.guides = e.target.checked; scheduleRender(false); return; }
+    if (e.target.dataset.pk === "day") onPostField(e.target);
+  });
+
+  /* drag to reposition the photo */
+  let drag = null;
+  stage.addEventListener("pointerdown", e => {
+    if (e.target.id !== "preview") return;
+    const s = curSlide(); if (!s || !hasPhoto(s)) return;
+    const r = e.target.getBoundingClientRect();
+    const which = s.layout === "split" && (e.clientY - r.top) / r.height > .5 ? "2" : "";
+    if (!getImg(which ? s.img2 : s.img)) return;
+    drag = {x: e.clientX, y: e.clientY, w: r.width, h: r.height, which, fx: s["fx" + which], fy: s["fy" + which], z: s["zoom" + which] || 1};
+    e.target.setPointerCapture(e.pointerId); e.target.classList.add("dragging");
+  });
+  stage.addEventListener("pointermove", e => {
+    if (!drag) return; const s = curSlide(); if (!s) return;
+    const k = 1.6 / drag.z;
+    s["fx" + drag.which] = clamp(drag.fx - (e.clientX - drag.x) / drag.w * k, 0, 1);
+    s["fy" + drag.which] = clamp(drag.fy - (e.clientY - drag.y) / drag.h * k * (s.layout === "split" ? 2 : 1), 0, 1);
+    scheduleRender(false);
+  });
+  const end = e => {
+    if (!drag) return; drag = null;
+    const c = $("#preview"); if (c) c.classList.remove("dragging");
+    const p = cur(); if (p){ scheduleRender(true); touch(p.id); if (state.tab === "slide") renderInspector(); }
+  };
+  stage.addEventListener("pointerup", end); stage.addEventListener("pointercancel", end);
+
+  const insp = $("#insp");
+  insp.addEventListener("input", e => {
+    const el = e.target;
+    if (el.dataset.k && state.tab === "slide") return onSlideField(el);
+    if (el.dataset.k === "label") return onPostLabel(el);
+    if (el.dataset.pk) return onPostField(el);
+    if (el.dataset.color){ const p = cur(); p.theme = Object.assign({}, p.theme, {[el.dataset.color]: el.value.toUpperCase()}); renderList(); scheduleRender(true); touch(p.id); }
+  });
+  insp.addEventListener("change", e => {
+    const el = e.target;
+    if (el.dataset.actCheck === "topFade"){ const s = curSlide(), p = cur(); if (s){ s.topFade = el.checked ? .55 : 0; renderInspector(); scheduleRender(true); touch(p.id); } return; }
+    if (el.dataset.file){ addFiles(el.files, el.dataset.file); el.value = ""; return; }
+    if (el.dataset.color) renderInspector();
+  });
+  insp.addEventListener("click", async e => {
+    const p = cur(); if (!p) return;
+    const s = curSlide();
+    const segBtn = e.target.closest(".seg button");
+    if (segBtn && s){
+      const key = segBtn.parentElement.dataset.seg, v = segBtn.dataset.v;
+      if (key === "hlMode") s.hlStyle = v === "same" ? "same" : (s.hlLast || "bold");
+      else if (key === "hlStyle"){ s.hlStyle = v; s.hlLast = v; }
+      else if (key === "textOnly") s.textOnly = v === "true";
+      else if (key === "bw") s.bw = v === "on" ? true : v === "off" ? false : null;
+      else s[key] = v;
+      if (key === "layout" && v === "step" && !s.num) { s.num = "1"; s.tag = s.tag || "Step"; }
+      renderInspector(); renderStage(); touch(p.id); return;
+    }
+    const a = e.target.closest("[data-act]"); if (!a) return;
+    const act = a.dataset.act;
+    if (act !== "del-slide" && act !== "del-post") state.confirm = null;
+    if (act === "arrow-color"){ s.arrowColor = a.dataset.c === "#FFFFFF" ? null : a.dataset.c; renderInspector(); scheduleRender(true); touch(p.id); return; }
+    if (act === "arrow-all"){ p.slides.forEach(x => { x.arrowColor = s.arrowColor; }); renderInspector(); scheduleRender(true); touch(p.id); toast("Arrow colour applied to every slide."); return; }
+    if (act === "use-bg" || act === "clear-bg"){
+      const target = a.dataset.scope === "post" ? p : s; if (!target) return;
+      target.bgImg = act === "use-bg" ? p.photos[+a.dataset.i] : null;
+      renderInspector(); renderStage(); touch(p.id); return;
+    }
+    if (act === "badge"){ s.badge = a.dataset.v; renderInspector(); scheduleRender(true); touch(p.id); return; }
+    if (act === "post-format"){ p.format = a.dataset.v; renderAll(); touch(p.id); return; }
+    if (act === "set-color"){ s[a.dataset.key] = a.dataset.c || null; renderInspector(); scheduleRender(true); touch(p.id); return; }
+    if (act === "tpl"){ Object.assign(s, clone(REEL_TPLS[a.dataset.v].look), {tpl: a.dataset.v}); renderInspector(); scheduleRender(true); touch(p.id); return; }
+    if (act === "save-preset" || act === "clear-preset"){
+      const key = presetKey(p), look = act === "save-preset" ? lookOf(s) : null;
+      if (look) state.presets[key] = look; else delete state.presets[key];
+      if (state.mode === "db" && !state.readOnly){
+        const ref = state.db.collection("presets").doc(key);
+        try { if (look) await ref.set({look, updatedAt: Date.now()}); else await ref.delete(); }
+        catch(err){ toast("Couldn't save the look. Try again."); return; }
+      }
+      renderInspector(); toast(look ? `New ${presetLabel(key)} will start with this look.` : "Saved look removed."); return;
+    }
+    if (act === "look-all"){
+      const keys = LOOK_KEYS;
+      p.slides.forEach(x => { if (x !== s) keys.forEach(k => { x[k] = clone({v:s[k]}).v ?? null; }); });
+      renderStage(); renderInspector(); touch(p.id); toast("Applied this slide's look to every slide. Undo if you change your mind."); return;
+    }
+    if (act === "dup-post"){
+      const id = `${p.date || "undated"}-${p.day}-${uid().slice(0, 4)}`;
+      const c = normPost(id, clone(cleanPost(p))); c.title = p.title + " (copy)"; c.status = "draft";
+      c.slides.forEach(x => { x.id = uid(); });
+      state.posts.set(id, c); openPost(id); touch(id, true); toast("Post duplicated. Change its date and text."); return;
+    }
+    if (act === "wrap"){ const ta = document.getElementById(a.dataset.target); if (ta && !wrapSel(ta, a.dataset.m)) toast("Click inside a word, or select some words first."); return; }
+    if (act === "box-color"){ s.boxColor = a.dataset.c || null; renderInspector(); scheduleRender(true); touch(p.id); return; }
+    if (act === "reset-type"){ Object.assign(s, {scale:1, lh:1, track:0}); renderInspector(); scheduleRender(true); touch(p.id); return; }
+    if (act === "use-photo"){ s[a.dataset.slot] = p.photos[+a.dataset.i]; renderInspector(); renderStage(); touch(p.id); }
+    else if (act === "clear-img"){ s[a.dataset.slot] = null; renderInspector(); renderStage(); touch(p.id); }
+    else if (act === "dup"){ const c = normSlide(clone(Object.assign({}, s, {img: s.img && {...s.img}, img2: s.img2 && {...s.img2}}))); c.id = uid(); p.slides.splice(state.slideIdx + 1, 0, c); state.slideIdx++; renderStage(); renderInspector(); touch(p.id); }
+    else if (act === "left" || act === "right"){
+      const j = state.slideIdx + (act === "left" ? -1 : 1); if (j < 0 || j >= p.slides.length) return;
+      [p.slides[state.slideIdx], p.slides[j]] = [p.slides[j], p.slides[state.slideIdx]]; state.slideIdx = j; renderStage(); renderInspector(); touch(p.id);
+    }
+    else if (act === "del-slide"){
+      if (state.confirm !== "slide"){ state.confirm = "slide"; renderInspector(); return; }
+      state.confirm = null;
+      if (p.slides.length <= 1){ toast("A post needs at least one slide."); renderInspector(); return; }
+      p.slides.splice(state.slideIdx, 1); state.slideIdx = Math.min(state.slideIdx, p.slides.length - 1); renderStage(); renderInspector(); touch(p.id);
+    }
+    else if (act === "swatch"){ p.theme = Object.assign({}, p.theme, {[a.dataset.key]: a.dataset.c}); renderList(); renderInspector(); scheduleRender(true); touch(p.id); }
+    else if (act === "reset-theme"){ p.theme = {}; renderList(); renderInspector(); scheduleRender(true); touch(p.id); }
+    else if (act === "lib-remove"){ p.photos.splice(+a.dataset.i, 1); renderInspector(); touch(p.id); }
+    else if (act === "copy-caption"){
+      try { await navigator.clipboard.writeText(p.caption || ""); toast("Caption copied."); }
+      catch(err){ const ta = $("#postCaption"); ta.focus(); ta.select(); toast("Press Ctrl+C or ⌘C to copy the selected caption."); }
+    }
+    else if (act === "del-post"){
+      if (state.confirm !== "post"){ state.confirm = "post"; renderInspector(); return; }
+      state.confirm = null; const id = p.id; await removePost(id);
+      state.currentId = pickDefaultPost(); state.slideIdx = 0; renderAll(); toast("Post deleted.");
+    }
+  });
+  insp.addEventListener("mousedown", e => { if (e.target.closest(".fmt button")) e.preventDefault(); });
+  insp.addEventListener("dragover", e => { const d = e.target.closest("[data-drop]"); if (d){ e.preventDefault(); d.classList.add("over"); } });
+  insp.addEventListener("dragleave", e => { const d = e.target.closest("[data-drop]"); if (d) d.classList.remove("over"); });
+  insp.addEventListener("drop", e => { const d = e.target.closest("[data-drop]"); if (!d) return; e.preventDefault(); d.classList.remove("over"); addFiles(e.dataTransfer.files, d.dataset.drop); });
+
+  document.addEventListener("keydown", e => {
+    if (e.target.closest("input,textarea,select,[contenteditable]")) return;
+    const mod = e.metaKey || e.ctrlKey;
+    if (mod && (e.key === "z" || e.key === "Z")){ e.preventDefault(); undoRedo(e.shiftKey ? 1 : -1); return; }
+    if (mod && (e.key === "y" || e.key === "Y")){ e.preventDefault(); undoRedo(1); return; }
+    if (e.key === "ArrowLeft") goSlide(state.slideIdx - 1);
+    if (e.key === "ArrowRight") goSlide(state.slideIdx + 1);
+  });
+}
+
+/* ---------- data ---------- */
+function applySnapshot(snap){
+  const seen = new Set(); let currentChanged = false;
+  snap.docs.forEach(d => {
+    seen.add(d.id);
+    if (state.dirty.has(d.id) || state.saving.has(d.id)) return;
+    const incoming = normPost(d.id, clone(d.data() || {}));
+    const prev = state.posts.get(d.id);
+    if (!prev) { state.posts.set(d.id, incoming); histOf(d.id).last = snapStr(incoming); if (d.id === state.currentId) currentChanged = true; return; }
+    if (prev){
+      // keep in-tab photo previews for refs that now carry an id
+      const srcs = new Map(); const keep = r => { if (r && r.id && r.src) srcs.set(r.id, r.src); };
+      prev.photos.forEach(keep); prev.slides.forEach(s => { keep(s.img); keep(s.img2); });
+      const re = r => { if (r && r.id && srcs.has(r.id)) r.src = srcs.get(r.id); };
+      incoming.photos.forEach(re); incoming.slides.forEach(s => { re(s.img); re(s.img2); });
+      if (JSON.stringify(cleanPost(prev)) === JSON.stringify(cleanPost(incoming))) return;
+    }
+    state.posts.set(d.id, incoming);
+    histOf(d.id).last = snapStr(incoming);
+    if (d.id === state.currentId) currentChanged = true;
+  });
+  for (const id of [...state.posts.keys()]) if (!seen.has(id) && !state.dirty.has(id) && !state.saving.has(id)) { state.posts.delete(id); if (id === state.currentId) currentChanged = true; }
+  if (!state.currentId || !state.posts.has(state.currentId)) { state.currentId = pickDefaultPost(); state.slideIdx = 0; currentChanged = true; }
+  const p = cur(); if (p) state.slideIdx = clamp(state.slideIdx, 0, Math.max(0, p.slides.length - 1));
+  renderList();
+  const typing = document.activeElement && document.activeElement.closest && document.activeElement.closest("#insp, .post-head");
+  if (currentChanged){ if (typing) scheduleRender(true); else { renderStage(); renderInspector(); } }
+  renderSave();
+}
+async function init(){
+  wire(); renderAll();
+  const use = window.claude && window.claude.use ? n => window.claude.use(n).catch(() => null) : () => Promise.resolve(null);
+  const [db, assets, downloads] = await Promise.all([use("db"), use("assets"), use("downloads"), use("user")]);
+  state.assets = assets; state.downloads = downloads;
+  if (window.KH) state.fmt = KH.startFormat();
+  if (!db){ state.mode = "local"; state.currentId = pickDefaultPost(); renderAll(); return; }
+  state.db = db; state.mode = "db";
+  let first = true;
+  const timer = setTimeout(() => { state.stale = true; renderSave(); if (first) renderStage(); }, 10000);
+  db.collection("presets").onSnapshot(snap => {
+    state.presets = {}; snap.docs.forEach(d => { const v = d.data(); if (v && v.look) state.presets[d.id] = v.look; });
+    if (state.tab === "slide" && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("#insp"))) renderInspector();
+  }, () => {});
+  db.collection("posts").onSnapshot(snap => {
+    if (!snap.metadata.fromCache){ clearTimeout(timer); state.stale = false; }
+    applySnapshot(snap);
+    if (first){ first = false;
+      const m = location.hash.match(/^#post=(.+)$/), tp = m && state.posts.get(decodeURIComponent(m[1]));
+      if (tp){ state.fmt = tp.format || "carousel"; openPost(tp.id); } else { state.currentId = pickDefaultPost(); renderAll(); }
+    }
+  }, err => {
+    clearTimeout(timer); state.stale = false;
+    if (state.posts.size === 0) state.mode = "local";
+    toast("Lost the connection to saved posts. Reload to reconnect."); renderAll();
+  });
+  renderSave();
+}
+window.__studio = {state, normPost, openPost, renderAll, templateFor, drawSlide};
+// Called by js/kh.js when a photo finishes loading from the asset store.
+window.__khRefresh = () => {
+  const typing = document.activeElement && document.activeElement.closest && document.activeElement.closest("#insp, .post-head");
+  if (typing) scheduleRender(true); else { renderStage(); renderInspector(); }
+};
+init();
+})();
+</script>
+<script type="module" src="/js/studio.js"></script>
+</body></html>

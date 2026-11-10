@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Team · Konnected House Design Studio</title>
+<link rel="icon" href="/brand/kmp-mark.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&display=swap">
+<link rel="stylesheet" href="/css/site.css">
+</head><body>
+<div class="wrap" id="team" hidden>
+  <header class="top">
+    <div class="word"><b>Konnected House</b><small>Design Studio</small></div>
+    <nav class="kh-nav" id="khNav" aria-label="Site"></nav>
+  </header>
+
+  <h1>Team</h1>
+  <p class="lead">Everyone signs in with their own email. Work belongs to the studio, so anyone with the right role can pick up a post a teammate started.</p>
+
+  <h2>Add someone</h2>
+  <form class="panel invite" id="inviteForm">
+    <label class="f">Name<input type="text" id="invName" required placeholder="Ama"></label>
+    <label class="f">Email<input type="email" id="invEmail" required placeholder="ama@konnectedhouse.com"></label>
+    <label class="f">Role<select id="invRole"></select></label>
+    <button class="btn primary" type="submit">Add and send invite</button>
+    <p class="msg" id="invMsg" role="status" style="grid-column:1/-1"></p>
+  </form>
+
+  <h2>People</h2>
+  <div class="panel tbl">
+    <table>
+      <thead><tr><th>Name</th><th>Email</th><th>Role</th><th></th></tr></thead>
+      <tbody id="people"><tr><td colspan="4" class="e">Loading…</td></tr></tbody>
+    </table>
+  </div>
+
+  <h2>What each role can do</h2>
+  <div class="roles" id="roles"></div>
+</div>
+<script type="module" src="/js/team.js"></script>
+</body></html>

@@ -1,0 +1,9 @@
+{
+  "name": "kh-studio-tools",
+  "private": true,
+  "type": "module",
+  "description": "Admin tasks for the Konnected House Design Studio (run locally with the service-account key).",
+  "dependencies": {
+    "firebase-admin": "^13.0.0"
+  }
+}

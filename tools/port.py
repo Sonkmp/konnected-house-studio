@@ -1,0 +1,123 @@
+#!/usr/bin/env python3
+"""Turn a claude.ai studio source into a website page.
+
+  python3 tools/port.py            # builds public/kmp/index.html and public/unbroken/index.html
+
+The studio sources in studios/ are the same files the claude.ai artifacts are built from
+(KM Studio Source/studio.src.html, and Unbroken Pod/Studio Source/studio.src.html), so a fix
+made there can be copied in and re-ported. Every replacement must match exactly once, so a
+change in a source fails loudly instead of producing a half-ported page.
+"""
+import os, sys
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+STUDIOS = {
+    "kmp": {"title": "KMP Studio"},
+    "unbroken": {"title": "Unbroken Studio"},
+}
+
+
+def port(key):
+    src = open(os.path.join(ROOT, "studios", f"{key}.src.html"), encoding="utf8").read()
+
+    def rep(old, new, count=1):
+        nonlocal src
+        n = src.count(old)
+        if n != count:
+            sys.exit(f"[{key}] expected {count} match(es), found {n}:\n{old[:160]}")
+        src = src.replace(old, new)
+
+    # ---------- document shell ----------
+    start = src.index('<meta name="claude:viewport-fit-sides" content="cover">')
+    src = src[start:]
+    rep('<meta name="claude:viewport-fit-sides" content="cover">',
+        '<!doctype html>\n<html lang="en"><head>\n<meta charset="utf-8">\n'
+        '<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">\n'
+        f'<title>{STUDIOS[key]["title"]} · Konnected House</title>\n'
+        f'<meta name="kh-studio" content="{key}">\n'
+        f'<link rel="icon" href="/brand/{key}-mark.png">\n'
+        '<link rel="stylesheet" href="/css/studio-nav.css">\n'
+        '<script src="/js/kh-boot.js"></script>')
+    rep('\n<div class="app">', '\n</head><body>\n<div class="app">')
+    rep('__LOGO_FULL__', f'/brand/{key}-logo-full.png', 2)
+    rep('__LOGO_MARK__', f'/brand/{key}-mark.png')
+    src = src.rstrip() + '\n<script type="module" src="/js/studio.js"></script>\n</body></html>\n'
+
+    # ---------- header: studio switcher and account ----------
+    rep('<div class="save" id="saveState"',
+        '<nav class="kh-nav" id="khNav" aria-label="Studios"></nav>\n    <div class="save" id="saveState"')
+
+    # ---------- Carousels / Reel covers toggle replaces the format picker ----------
+    rep('<span class="eyebrow">Posts</span>',
+        '<div class="seg kh-fmt" id="fmtSeg" role="tablist" aria-label="Format">'
+        '<button type="button" role="tab" data-fmt="carousel" class="on" aria-selected="true">Carousels</button>'
+        '<button type="button" role="tab" data-fmt="reel" aria-selected="false">Reel covers</button></div>')
+    rep('aria-expanded="false">+ New post</button>', 'aria-expanded="false">+ New</button>')
+    rep('''        <label class="f full">Format
+          <select id="newFormat"><option value="carousel">Carousel · 1080 × 1350</option><option value="reel">Reel cover · 1080 × 1440</option></select>
+        </label>
+''', '')
+    rep('  confirm: null\n};', '  confirm: null, fmt: "carousel"\n};')
+    rep('return [...state.posts.values()].sort(',
+        'return [...state.posts.values()].filter(p => (p.format || "carousel") === state.fmt).sort(')
+    rep('const format = $("#newFormat").value;',
+        'const format = state.fmt;\n'
+        '    if (window.KH && !KH.canCreate(format)){ toast(`Your role can\'t start ${format === "reel" ? "reel covers" : "carousels"}.`); return; }')
+    rep('$("#newPostBtn").addEventListener("click"',
+        '$("#fmtSeg").addEventListener("click", e => { const b = e.target.closest("[data-fmt]"); if (b) setFmt(b.dataset.fmt); });\n'
+        '  $("#newPostBtn").addEventListener("click"')
+    rep('function renderAll(){ renderList();', '''function setFmt(f){
+  if (f === state.fmt) return;
+  state.fmt = f;
+  if (window.KH) KH.rememberFormat(f);
+  $("#newForm").hidden = true; $("#newPostBtn").setAttribute("aria-expanded", "false");
+  state.currentId = pickDefaultPost(); state.slideIdx = 0; state.confirm = null;
+  if (state.currentId && !hist[state.currentId]) histInit(state.currentId);
+  renderAll();
+}
+// Role rules live in js/kh.js; the page only reflects them (Firestore rules enforce them).
+function syncAccess(){
+  const p = cur();
+  state.readOnly = !!(window.KH && p && !KH.canEdit(p));
+  document.querySelectorAll("#fmtSeg [data-fmt]").forEach(b => { const on = b.dataset.fmt === state.fmt; b.classList.toggle("on", on); b.setAttribute("aria-selected", String(on)); });
+  const nb = $("#newPostBtn"); if (nb) nb.hidden = !!(window.KH && !KH.canCreate(state.fmt));
+}
+function renderAll(){ syncAccess(); renderList();''')
+
+    # ---------- photos come from the site's asset store ----------
+    rep('if (ref.id) return "/_blob/" + ref.id;', 'if (ref.id) return window.KH ? KH.assetSrc(ref.id) : "";')
+    rep('function loadImg(ref){',
+        'async function loadImg(ref){\n  if (ref && ref.id && !ref.src && window.KH) await KH.assetReady(ref.id);')
+
+    # ---------- copy that pointed at claude.ai ----------
+    rep('<p>Send Claude the photos for a post in chat and it will fill the slides for you. You can also start a blank post here with <b>+ New post</b> and add photos yourself.</p>',
+        '<p>Posts the content team queues show up here. You can also start one with <b>+ New</b> and add photos yourself.</p>')
+    rep('''  if (state.mode === "local") b.innerHTML = `<div class="banner">Saving isn't available in this view, so edits last only until you close the tab. Open the studio on claude.ai while signed in to keep your changes.</div>`;''',
+        '''  if (state.mode === "local") b.innerHTML = `<div class="banner">Can't reach the saved posts, so edits last only until you close the tab. Check your connection and reload.</div>`;
+  else if (state.readOnly && cur()) b.innerHTML = `<div class="banner">You can look at this ${cur().format === "reel" ? "reel cover" : "carousel"} and download it. Changes you make here aren't saved.</div>`;''')
+
+    # ---------- start-up: format to open, deep links, photo refresh ----------
+    rep('state.assets = assets; state.downloads = downloads;',
+        'state.assets = assets; state.downloads = downloads;\n  if (window.KH) state.fmt = KH.startFormat();')
+    rep('if (first){ first = false; renderAll(); }',
+        'if (first){ first = false;\n'
+        '      const m = location.hash.match(/^#post=(.+)$/), tp = m && state.posts.get(decodeURIComponent(m[1]));\n'
+        '      if (tp){ state.fmt = tp.format || "carousel"; openPost(tp.id); } else { state.currentId = pickDefaultPost(); renderAll(); }\n'
+        '    }')
+    rep('window.__studio = {state, normPost, openPost, renderAll, templateFor, drawSlide};',
+        '''window.__studio = {state, normPost, openPost, renderAll, templateFor, drawSlide};
+// Called by js/kh.js when a photo finishes loading from the asset store.
+window.__khRefresh = () => {
+  const typing = document.activeElement && document.activeElement.closest && document.activeElement.closest("#insp, .post-head");
+  if (typing) scheduleRender(true); else { renderStage(); renderInspector(); }
+};''')
+
+    out_dir = os.path.join(ROOT, "public", key)
+    os.makedirs(out_dir, exist_ok=True)
+    open(os.path.join(out_dir, "index.html"), "w", encoding="utf8").write(src)
+    print(f"ported {key}: {len(src):,} bytes")
+
+
+if __name__ == "__main__":
+    for k in (sys.argv[1:] or STUDIOS):
+        port(k)

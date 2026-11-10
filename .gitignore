@@ -1,0 +1,7 @@
+# Never commit the Firebase service-account key. tools/ reads it from ../.secrets/
+*adminsdk*.json
+service-account*.json
+.secrets/
+node_modules/
+.DS_Store
+tools/out/
