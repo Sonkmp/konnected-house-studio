@@ -160,6 +160,16 @@ input[type=color]{width:34px;height:30px;border:1px solid var(--line-2);border-r
 .grp{display:flex;flex-direction:column;gap:10px}
 .grp h3{margin:0;font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
 .grp + .grp{border-top:1px solid var(--line);padding-top:16px}
+/* every inspector section folds; the heading is the toggle */
+.grp > h3 .fold{all:unset;box-sizing:border-box;display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;cursor:pointer;
+  font:inherit;letter-spacing:inherit;text-transform:inherit;color:inherit;padding:2px 0;border-radius:6px}
+.grp > h3 .fold:hover{color:var(--fg)}
+.grp > h3 .fold:focus-visible{outline:2px solid var(--brand);outline-offset:3px}
+.grp > h3 .fold i{width:8px;height:8px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg) translate(-2px,-2px);transition:transform .15s}
+.grp.folded > h3 .fold i{transform:rotate(-45deg)}
+.grp.folded > :not(h3){display:none!important}
+.grp.folded{gap:0}
+.fold-all{display:flex;justify-content:flex-end;gap:12px;margin:-6px 0 -8px}
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .seg{display:flex;flex-wrap:wrap;gap:4px;background:var(--field);border:1px solid var(--line-2);border-radius:9px;padding:3px}
 .seg button{flex:1 1 auto;border:0;background:transparent;border-radius:7px;padding:6px 8px;font-size:12px;font-weight:600;color:var(--muted)}
@@ -1261,7 +1271,25 @@ function renderInspector(){
   $("#tabSlide").setAttribute("aria-selected", state.tab === "slide");
   $("#tabPost").setAttribute("aria-selected", state.tab === "post");
   $("#insp").innerHTML = state.tab === "slide" ? inspSlide() : inspPost();
+  foldSections();
   if (document.querySelector("canvas[data-tpl]")) renderThumbs();
+}
+/* folding: which sections are folded is remembered per tab, in this browser only */
+const FOLD_KEY = "studio.folded.v1";
+const folded = (() => { try { return new Set(JSON.parse(localStorage.getItem(FOLD_KEY) || "[]")); } catch(e){ return new Set(); } })();
+const foldKey = h => state.tab + ":" + h.textContent.trim().toLowerCase();
+function saveFolds(){ try { localStorage.setItem(FOLD_KEY, JSON.stringify([...folded])); } catch(e){ /* remembering is a convenience only */ } }
+function foldSections(){
+  const heads = [...document.querySelectorAll("#insp .grp > h3")];
+  heads.forEach(h => {
+    const key = foldKey(h), shut = folded.has(key);
+    h.innerHTML = `<button type="button" class="fold" data-fold="${esc(key)}" aria-expanded="${!shut}"><span>${h.innerHTML}</span><i aria-hidden="true"></i></button>`;
+    h.parentElement.classList.toggle("folded", shut);
+  });
+  if (heads.length > 2){
+    const allShut = heads.every(h => folded.has(foldKey(h)));
+    $("#insp").insertAdjacentHTML("afterbegin", `<div class="fold-all"><button type="button" class="link" data-fold-all="${allShut ? "open" : "shut"}">${allShut ? "Open all sections" : "Fold all sections"}</button></div>`);
+  }
 }
 function setFmt(f){
   if (f === state.fmt) return;
@@ -1587,6 +1615,23 @@ function wire(){
     if (el.dataset.color) renderInspector();
   });
   insp.addEventListener("click", async e => {
+    const fb = e.target.closest("[data-fold]");
+    if (fb){
+      const key = fb.dataset.fold, shut = !folded.has(key);
+      if (shut) folded.add(key); else folded.delete(key);
+      saveFolds(); fb.setAttribute("aria-expanded", String(!shut));
+      fb.closest(".grp").classList.toggle("folded", shut);
+      const all = document.querySelector("[data-fold-all]");
+      if (all){ const shutAll = [...document.querySelectorAll("#insp [data-fold]")].every(b => folded.has(b.dataset.fold));
+        all.dataset.foldAll = shutAll ? "open" : "shut"; all.textContent = shutAll ? "Open all sections" : "Fold all sections"; }
+      return;
+    }
+    const fa = e.target.closest("[data-fold-all]");
+    if (fa){
+      const shut = fa.dataset.foldAll === "shut";
+      document.querySelectorAll("#insp [data-fold]").forEach(b => { if (shut) folded.add(b.dataset.fold); else folded.delete(b.dataset.fold); });
+      saveFolds(); renderInspector(); return;
+    }
     const p = cur(); if (!p) return;
     const s = curSlide();
     const segBtn = e.target.closest(".seg button");
