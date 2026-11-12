@@ -353,7 +353,7 @@ function S(o){
     arrow: null, arrowColor: null, coverArrow: true, boxColor: null,
     shadowColor: null, fadeColor: null, textPos: null, numAlpha: .22, numScale: 1,
     topFade: .55, hlStyle: "same", badge: "", badgeColor: null, badgePos: "above",
-    bgImg: null, bgDim: null, weight: "", caps: false, textColor: null, hiScale: 1, tpl: null
+    bgImg: null, bgDim: null, weight: "", caps: false, textColor: null, hiScale: 1, tpl: null, reelLabel: false
   }, o || {});
 }
 function normSlide(s){ const n = S(s); n.textOnly = false; n.chip = Object.assign({name:"",title:""}, s && s.chip || {}); return n; }
@@ -363,7 +363,7 @@ function normPost(id, p){
   n.slides = (n.slides||[]).map(normSlide);
   return n;
 }
-const LOOK_KEYS = ["tpl","hiScale","font","hlStyle","hlLast","weight","caps","textColor","scale","lh","track","boxColor","fade","fadeH","topFade","shadow","shadowColor","fadeColor","arrowColor","bw","align","textPos","numAlpha","numScale","badgeColor","badgePos"];
+const LOOK_KEYS = ["tpl","reelLabel","hiScale","font","hlStyle","hlLast","weight","caps","textColor","scale","lh","track","boxColor","fade","fadeH","topFade","shadow","shadowColor","fadeColor","arrowColor","bw","align","textPos","numAlpha","numScale","badgeColor","badgePos"];
 // "Use this slide's look on every slide" copies the saved-look settings plus these
 const ALL_KEYS = [...LOOK_KEYS, "hideLabel", "chipPos", "bgImg", "bgDim", "topFade"];
 const presetKey = p => p.format === "reel" ? "reel" : p.day;
@@ -797,7 +797,7 @@ function logoShown(s, i, n, p){ return s.layout !== "cta" && (s.showLogo ?? ((p 
 function drawSlide(ctx, p, s, i, n){
   H = postH(p); IS_REEL = p.format === "reel";
   // a reel cover is a single image: no layouts, labels, arrows or counters
-  if (IS_REEL){ s = Object.assign({}, s, {layout:"photo", isCover:true, coverArrow:false, hideLabel:true, arrow:false}); i = 0; n = 1; }
+  if (IS_REEL){ s = Object.assign({}, s, {layout:"photo", isCover:true, coverArrow:false, hideLabel:!s.reelLabel, arrow:false}); i = 0; n = 1; }
   ctx.save();
   ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
   ctx.clearRect(0, 0, W, H);
@@ -1096,6 +1096,8 @@ function inspSlide(){
   }
   if (reel){
     parts.push(`<section class="grp"><h3>Cover</h3>
+      <label class="toggle"><input type="checkbox" data-k="reelLabel" ${s.reelLabel ? "checked" : ""}> Show the pillar label (top left)</label>
+      ${s.reelLabel && s.badge && s.badgePos === "top-left" ? `<p class="help">The top-left badge is using the label's spot. Move the badge above the text to show both.</p>` : ""}
       <label class="toggle"><input type="checkbox" data-k="showLogo" ${s.showLogo !== false ? "checked" : ""}> Show the logo (top right)</label>
     </section>`);
     return parts.join("");

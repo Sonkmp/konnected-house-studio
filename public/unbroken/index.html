@@ -358,7 +358,7 @@ function S(o){
     shadowColor: null, fadeColor: null, textPos: null, numAlpha: .22, numScale: 1,
     topFade: .55, hlStyle: "same", badge: "", badgeColor: null, badgePos: "above",
     bgImg: null, bgDim: null, weight: "", caps: false, textColor: null, hiScale: 1, tpl: null,
-    frame: false, frameColor: null
+    frame: false, frameColor: null, reelLabel: false
   }, o || {});
 }
 function normSlide(s){ const n = S(s); n.textOnly = false; if (n.handle === "@unbrokenpodcast") n.handle = "@the.unbroken_podcast"; n.chip = Object.assign({name:"",title:""}, s && s.chip || {}); return n; }
@@ -368,7 +368,7 @@ function normPost(id, p){
   n.slides = (n.slides||[]).map(normSlide);
   return n;
 }
-const LOOK_KEYS = ["tpl","hiScale","font","hlStyle","hlLast","weight","caps","textColor","scale","lh","track","boxColor","fade","fadeH","topFade","shadow","shadowColor","fadeColor","arrowColor","bw","align","textPos","numAlpha","numScale","badgeColor","badgePos","frame","frameColor"];
+const LOOK_KEYS = ["tpl","reelLabel","hiScale","font","hlStyle","hlLast","weight","caps","textColor","scale","lh","track","boxColor","fade","fadeH","topFade","shadow","shadowColor","fadeColor","arrowColor","bw","align","textPos","numAlpha","numScale","badgeColor","badgePos","frame","frameColor"];
 // "Use this slide's look on every slide" copies the saved-look settings plus these
 const ALL_KEYS = [...LOOK_KEYS, "hideLabel", "chipPos", "bgImg", "bgDim", "topFade"];
 const presetKey = p => p.format === "reel" ? "reel" : p.day;
@@ -862,7 +862,7 @@ function logoShown(s, i, n, p){ return s.layout !== "cta" && (s.showLogo ?? ((p 
 function drawSlide(ctx, p, s, i, n){
   H = postH(p); IS_REEL = p.format === "reel";
   // a reel cover is a single image: no layouts, labels, arrows or counters
-  if (IS_REEL){ s = Object.assign({}, s, {layout:"photo", isCover:true, coverArrow:false, hideLabel:true, arrow:false}); i = 0; n = 1; }
+  if (IS_REEL){ s = Object.assign({}, s, {layout:"photo", isCover:true, coverArrow:false, hideLabel:!s.reelLabel, arrow:false}); i = 0; n = 1; }
   ctx.save();
   ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
   ctx.clearRect(0, 0, W, H);
@@ -885,7 +885,7 @@ function drawSlide(ctx, p, s, i, n){
   const ubLogo = isUb(s) && s.layout === "photo";
   if (logoOn && LOGO.complete && LOGO.naturalWidth){
     // Unbroken covers keep the Figma spot (top left, 295 px wide); everything else gets the small top-right logo
-    if (ubLogo){ const lw = 295, lh = lw * LOGO.naturalHeight / LOGO.naturalWidth; ctx.drawImage(LOGO, 141, 130, lw, lh); }
+    if (ubLogo){ const lw = 295, lh = lw * LOGO.naturalHeight / LOGO.naturalWidth; ctx.drawImage(LOGO, 141, s.hideLabel ? 130 : 172, lw, lh); } // drops below the pillar label when it shows
     else { const lh = 72, lw = lh * LOGO.naturalWidth / LOGO.naturalHeight; ctx.drawImage(LOGO, W - M - lw, Math.max(48, M - 40) + TOP_NUDGE, lw, lh); }
   }
   if (p.showCounter && !IS_REEL){ ctx.font = "700 24px Poppins, system-ui, sans-serif"; ctx.fillStyle = "rgba(255,255,255,.88)"; spaced(ctx, `${pad2(i+1)} / ${pad2(n)}`, W - M, (logoOn && !ubLogo ? 172 : 97) + TOP_NUDGE, 2, "right"); }
@@ -1171,6 +1171,8 @@ function inspSlide(){
   }
   if (reel){
     parts.push(`<section class="grp"><h3>Cover</h3>
+      <label class="toggle"><input type="checkbox" data-k="reelLabel" ${s.reelLabel ? "checked" : ""}> Show the pillar label (top left)</label>
+      ${s.reelLabel && s.badge && s.badgePos === "top-left" ? `<p class="help">The top-left badge is using the label's spot. Move the badge above the text to show both.</p>` : ""}
       <label class="toggle"><input type="checkbox" data-k="showLogo" ${s.showLogo !== false ? "checked" : ""}> Show the logo</label>
       <label class="toggle"><input type="checkbox" data-k="frame" ${s.frame ? "checked" : ""}> Unbroken frame (red border and speech-bubble tail)</label>
       ${s.frame ? `<div class="swatches"><span class="help">Frame colour</span>
