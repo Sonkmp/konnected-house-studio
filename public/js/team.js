@@ -7,18 +7,18 @@ import {
   collection, doc, onSnapshot, setDoc, updateDoc, deleteDoc
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import {
-  db, firebaseConfig, requireMember, navHTML, wireNav, can, ROLES, normEmail, sendSetPassword, esc
+  db, firebaseConfig, requireMember, sidebarHTML, wireNav, can, ROLES, normEmail, sendSetPassword, esc
 } from "./kh.js";
 
 const $ = s => document.querySelector(s);
 const s = await requireMember();
 if (!can.team(s.role)) { location.replace("/"); throw new Error("admins only"); }
 $("#team").hidden = false;
-const nav = $("#khNav"); nav.innerHTML = navHTML(s, "team"); wireNav(nav);
+const sb = $("#sidebar"); sb.innerHTML = sidebarHTML(s, "team"); wireNav(sb);
 
 const roleOptions = sel => Object.entries(ROLES).map(([k, r]) => `<option value="${k}"${k === sel ? " selected" : ""}>${esc(r.label)}</option>`).join("");
 $("#invRole").innerHTML = roleOptions("designer");
-$("#roles").innerHTML = Object.values(ROLES).map(r => `<div class="panel"><b>${esc(r.label)}</b>${esc(r.blurb)}</div>`).join("");
+$("#roles").innerHTML = Object.values(ROLES).map(r => `<div class="card"><b>${esc(r.label)}</b>${esc(r.blurb)}</div>`).join("");
 
 // A second Firebase app creates the new account, so the admin stays signed in.
 const inviter = getAuth(initializeApp(firebaseConfig, "invite"));

@@ -3,44 +3,67 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Konnected House Design Studio</title>
-<link rel="icon" href="/brand/kmp-mark.png">
+<link rel="icon" href="/brand/kh-mark.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&display=swap">
 <link rel="stylesheet" href="/css/site.css">
 </head><body>
 
-<main class="panel login" id="login" hidden>
-  <div class="word"><b>Konnected House</b><small>Design Studio</small></div>
-  <form id="loginForm" style="display:flex;flex-direction:column;gap:14px">
-    <label class="f">Email<input type="email" id="email" autocomplete="username" required></label>
-    <label class="f">Password<input type="password" id="password" autocomplete="current-password" required></label>
-    <button class="btn primary" type="submit">Sign in</button>
-  </form>
-  <button class="link" id="setPw" type="button" style="align-self:flex-start">First time here, or forgot your password?</button>
-  <p class="msg" id="loginMsg" role="status"></p>
+<main class="auth" id="login" hidden>
+  <section class="auth-brand">
+    <img class="logo" src="/brand/kh-logo-white.png" alt="Konnected House">
+    <img class="wm" src="/brand/kh-mark.png" alt="">
+    <div>
+      <h1>Design Studio for <span>every show</span> we make.</h1>
+      <p>Carousels and reel covers for Konnected Minds and Unbroken, in one place. Pick up where a teammate left off and download when it's ready to post.</p>
+    </div>
+    <div class="shows"><span>Konnected Minds</span><span>Unbroken Podcast</span><span>Carousels</span><span>Reel covers</span></div>
+  </section>
+  <section class="auth-form">
+    <div class="auth-card">
+      <h2>Sign in</h2>
+      <p class="sub">Use the email your admin added to the team.</p>
+      <form id="loginForm">
+        <label class="f">Email<input type="email" id="email" autocomplete="username" required></label>
+        <label class="f">Password<input type="password" id="password" autocomplete="current-password" required></label>
+        <button class="btn primary" type="submit">Sign in</button>
+      </form>
+      <button class="link" id="setPw" type="button" style="align-self:flex-start">First time here, or forgot your password?</button>
+      <p class="msg" id="loginMsg" role="status"></p>
+    </div>
+  </section>
 </main>
 
-<main class="panel login" id="noAccess" hidden>
-  <div class="word"><b>Konnected House</b><small>Design Studio</small></div>
+<main class="card notice" id="noAccess" hidden>
+  <img src="/brand/kh-logo.png" alt="Konnected House">
   <p>You're signed in as <b id="naEmail"></b>, but that email isn't on the team yet. Ask an admin to add you.</p>
-  <button class="btn" data-kh-out type="button">Sign out</button>
+  <button class="btn" data-kh-out type="button" style="align-self:flex-start">Sign out</button>
 </main>
 
-<div class="wrap" id="home" hidden>
-  <header class="top">
-    <div class="word"><b>Konnected House</b><small>Design Studio</small></div>
-    <nav class="kh-nav" id="khNav" aria-label="Site"></nav>
-  </header>
+<div class="shell" id="home" hidden>
+  <aside class="sb" id="sidebar"></aside>
+  <main class="main">
+    <header class="page-head">
+      <div><h1 id="hello">Hi</h1><p id="today"></p></div>
+    </header>
 
-  <h1 id="hello">Welcome</h1>
-  <p class="lead">Pick a studio to design, or see what's going out over the next two weeks.</p>
+    <div class="stats">
+      <div class="card stat"><span class="ic" id="icOpen"></span><div><b id="stOpen">–</b><span>Not posted yet · next 14 days</span></div></div>
+      <div class="card stat go"><span class="ic" id="icReady"></span><div><b id="stReady">–</b><span>Ready to post</span></div></div>
+      <div class="card stat"><span class="ic" id="icReel"></span><div><b id="stReel">–</b><span>Reel covers · next 14 days</span></div></div>
+    </div>
 
-  <h2>Studios</h2>
-  <div class="studios" id="studios"></div>
-
-  <h2>Coming up · next 14 days</h2>
-  <div class="panel sched" id="sched"><div class="day"><span class="empty">Loading…</span></div></div>
+    <div class="home-grid">
+      <section class="card">
+        <div class="card-head"><h2>Upcoming · next 14 days</h2></div>
+        <div class="sched" id="sched"><p class="empty">Loading…</p></div>
+      </section>
+      <section>
+        <div class="studios" id="studios"></div>
+      </section>
+    </div>
+  </main>
 </div>
 
 <script type="module" src="/js/home.js"></script>

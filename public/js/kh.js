@@ -25,8 +25,8 @@ export const db = initializeFirestore(app, {
 });
 
 export const STUDIOS = {
-  kmp: { key: "kmp", name: "KMP Studio", show: "Konnected Minds", path: "/kmp/", logo: "/brand/kmp-logo-full.png", accent: "#4CA4C6" },
-  unbroken: { key: "unbroken", name: "Unbroken Studio", show: "Unbroken Podcast", path: "/unbroken/", logo: "/brand/unbroken-logo-full.png", accent: "#C9060D" }
+  kmp: { key: "kmp", name: "KMP Studio", show: "Konnected Minds", path: "/kmp/", logo: "/brand/kmp-logo-full.png", accent: "#4CA4C6", band: "#0A0D24" },
+  unbroken: { key: "unbroken", name: "Unbroken Studio", show: "Unbroken Podcast", path: "/unbroken/", logo: "/brand/unbroken-logo-full.png", accent: "#C9060D", band: "#0D0D0D" }
 };
 
 export const ROLES = {
@@ -90,6 +90,37 @@ export function navHTML(s, current) {
     <span class="kh-me" title="${esc(s.email)}">${esc(s.name)} · ${esc(ROLES[s.role] ? ROLES[s.role].label : s.role)}</span>
     <button type="button" class="kh-out" data-kh-out>Sign out</button>`;
 }
+const svg = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+export const ICONS = {
+  home: svg('<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>'),
+  team: svg('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><circle cx="17.5" cy="9" r="2.5"/><path d="M17 14.5c2.3.2 4 1.8 4.5 4.5"/>'),
+  out: svg('<path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"/><path d="M10 16l4-4-4-4"/><path d="M14 12H4"/>'),
+  clock: svg('<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>'),
+  check: svg('<circle cx="12" cy="12" r="8.5"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/>'),
+  film: svg('<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M5 8h14M5 16h14"/>')
+};
+
+// Navy sidebar for the light pages (home, team). The studios use navHTML in their dark header.
+export function sidebarHTML(s, current) {
+  const link = (href, key, label, icon) =>
+    `<a href="${href}" class="sb-link"${key === current ? ' aria-current="page"' : ""}>${icon}<span>${esc(label)}</span></a>`;
+  const initials = s.name.split(/[\s.]+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join("") || "?";
+  return `<a href="/" class="sb-logo"><img src="/brand/kh-logo-white.png" alt="Konnected House"></a>
+    <div class="sb-eyebrow">Design Studio</div>
+    <nav class="sb-nav" aria-label="Site">
+      <div class="sb-group">Overview</div>
+      ${link("/", "home", "Home", ICONS.home)}
+      <div class="sb-group">Studios</div>
+      ${Object.values(STUDIOS).map(st => link(st.path, st.key, st.name, `<span class="sw" style="--c:${st.accent}"></span>`)).join("")}
+      ${can.team(s.role) ? `<div class="sb-group">Admin</div>${link("/team/", "team", "Team", ICONS.team)}` : ""}
+    </nav>
+    <div class="sb-user">
+      <span class="av" aria-hidden="true">${esc(initials)}</span>
+      <span class="who"><b title="${esc(s.email)}">${esc(s.name)}</b><small>${esc(ROLES[s.role] ? ROLES[s.role].label : s.role)}</small></span>
+      <button type="button" class="sb-out" data-kh-out title="Sign out" aria-label="Sign out">${ICONS.out}</button>
+    </div>`;
+}
+
 export function wireNav(root) {
   root.addEventListener("click", async e => {
     if (e.target.closest("[data-kh-out]")) { await logOut(); location.replace("/"); }

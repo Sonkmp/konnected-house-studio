@@ -1,6 +1,6 @@
-// Home page: sign in, pick a studio, and the two-week schedule across studios.
+// Home page: sign in, the two studios, and the two-week schedule across studios.
 import {
-  db, session, signIn, sendSetPassword, logOut, navHTML, wireNav, can, STUDIOS, esc
+  db, session, signIn, sendSetPassword, logOut, sidebarHTML, wireNav, can, STUDIOS, ICONS, esc
 } from "./kh.js";
 import {
   collection, query, where, onSnapshot, doc, updateDoc
@@ -47,28 +47,29 @@ function showLogin() {
 }
 
 function iso(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; }
-const fmtDay = isoDate => new Date(isoDate + "T12:00:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+const dayPill = isoDate => new Date(isoDate + "T12:00:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric" });
 const STATUS = { draft: "Draft", ready: "Ready", posted: "Posted" };
 
 function showHome(s) {
   $("#home").hidden = false;
-  const nav = $("#khNav"); nav.innerHTML = navHTML(s, "home"); wireNav(nav);
-  $("#hello").textContent = `Welcome, ${s.name}`;
+  const sb = $("#sidebar"); sb.innerHTML = sidebarHTML(s, "home"); wireNav(sb);
+  $("#hello").textContent = `Hi ${s.name.split(" ")[0]}`;
+  $("#today").textContent = new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" }) + " · Design Studio";
+  $("#icOpen").innerHTML = ICONS.clock; $("#icReady").innerHTML = ICONS.check; $("#icReel").innerHTML = ICONS.film;
 
   const posts = {};
   $("#studios").innerHTML = Object.values(STUDIOS).map(st => `
-    <a class="panel studio" href="${st.path}" style="--c:${st.accent}">
-      <img src="${st.logo}" alt="${esc(st.show)}">
-      <div><b>${esc(st.name)}</b><p id="count-${st.key}">&nbsp;</p></div>
-      <div class="row"><span class="btn sm">Carousels</span><span class="btn sm">Reel covers</span></div>
-    </a>`).join("");
-  document.querySelectorAll(".studio .btn").forEach((b, i) => {
-    b.addEventListener("click", e => {
-      e.preventDefault();
-      const st = Object.values(STUDIOS)[Math.floor(i / 2)];
-      location.href = st.path + (i % 2 ? "#reel" : "#carousel");
-    });
-  });
+    <article class="card studio" style="--b:${st.band};--c:${st.accent}">
+      <a class="band" href="${st.path}" aria-label="Open ${esc(st.name)}"><img src="${st.logo}" alt="${esc(st.show)}"></a>
+      <div class="body">
+        <b>${esc(st.name)}</b>
+        <p id="count-${st.key}">&nbsp;</p>
+        <div class="row">
+          <a class="btn primary sm" href="${st.path}#carousel">Carousels</a>
+          <a class="btn sm" href="${st.path}#reel">Reel covers</a>
+        </div>
+      </div>
+    </article>`).join("");
 
   const today = new Date(); today.setHours(12);
   const from = iso(today), end = new Date(today); end.setDate(end.getDate() + 13);
@@ -81,32 +82,26 @@ function showHome(s) {
       const list = posts[st.key], open = list.filter(p => p.status !== "posted").length;
       $("#count-" + st.key).textContent = list.length ? `${list.length} post${list.length > 1 ? "s" : ""} in the next 14 days · ${open} not posted yet` : "Nothing scheduled in the next 14 days";
       render();
-    }, () => { $("#sched").innerHTML = `<div class="day"><span class="empty">Couldn't load the schedule. Reload to try again.</span></div>`; });
+    }, () => { $("#sched").innerHTML = `<p class="empty">Couldn't load the schedule. Reload to try again.</p>`; });
   }
 
   function render() {
-    const all = Object.values(posts).flat();
-    let html = "";
-    for (let i = 0; i < 14; i++) {
-      const d = new Date(today); d.setDate(d.getDate() + i);
-      const key = iso(d);
-      const items = all.filter(p => p.date === key).sort((a, b) => a.studio.localeCompare(b.studio) || String(a.format).localeCompare(String(b.format)));
-      if (!items.length && i > 0) continue;
-      html += `<div class="day${i === 0 ? " today" : ""}"><div class="d">${i === 0 ? "Today" : esc(fmtDay(key).split(" ")[0])}<small>${esc(fmtDay(key).split(" ").slice(1).join(" "))}</small></div><div class="items">`;
-      if (!items.length) html += `<span class="empty">Nothing today.</span>`;
-      for (const p of items) {
-        const st = STUDIOS[p.studio];
-        html += `<div class="item">
-          <span class="dot" style="--c:${(p.theme && p.theme.accent) || st.accent}"></span>
-          <span class="t"><a href="${st.path}#post=${encodeURIComponent(p.id)}">${esc(p.title || "Untitled")}</a>
-            <small>${esc(st.name)} · ${p.format === "reel" ? "Reel cover" : `Carousel · ${(p.slides || []).length} slides`}${p.label ? " · " + esc(p.label) : ""}</small></span>
-          <span class="acts"><span class="chip" data-s="${esc(p.status || "draft")}">${esc(STATUS[p.status] || "Draft")}</span>
-            ${can.markPosted(s.role) && p.status !== "posted" ? `<button class="btn sm" data-posted="${esc(p.studio)}/${esc(p.id)}">Mark posted</button>` : ""}</span>
-        </div>`;
-      }
-      html += `</div></div>`;
-    }
-    $("#sched").innerHTML = html || `<div class="day"><span class="empty">Nothing scheduled.</span></div>`;
+    const all = Object.values(posts).flat()
+      .sort((a, b) => a.date.localeCompare(b.date) || a.studio.localeCompare(b.studio) || String(a.format).localeCompare(String(b.format)));
+    $("#stOpen").textContent = all.filter(p => p.status !== "posted").length;
+    $("#stReady").textContent = all.filter(p => p.status === "ready").length;
+    $("#stReel").textContent = all.filter(p => p.format === "reel").length;
+    $("#sched").innerHTML = all.map(p => {
+      const st = STUDIOS[p.studio];
+      return `<div class="item">
+        <span class="dp${p.date === from ? " today" : ""}">${p.date === from ? "Today" : esc(dayPill(p.date))}</span>
+        <span class="t"><span class="dot" style="--c:${(p.theme && p.theme.accent) || st.accent}"></span><span>
+          <a href="${st.path}#post=${encodeURIComponent(p.id)}">${esc(p.title || "Untitled")}</a>
+          <small>${esc(st.show)} · ${p.format === "reel" ? "Reel cover" : `Carousel · ${(p.slides || []).length} slides`}${p.label ? " · " + esc(p.label) : ""}</small></span></span>
+        <span class="acts"><span class="chip" data-s="${esc(p.status || "draft")}">${esc(STATUS[p.status] || "Draft")}</span>
+          ${can.markPosted(s.role) && p.status !== "posted" ? `<button class="btn sm" data-posted="${esc(p.studio)}/${esc(p.id)}">Mark posted</button>` : ""}</span>
+      </div>`;
+    }).join("") || `<p class="empty">Nothing scheduled in the next 14 days.</p>`;
   }
 
   $("#sched").addEventListener("click", async e => {
