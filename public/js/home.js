@@ -23,11 +23,19 @@ else showHome(s);
 
 function showLogin() {
   $("#login").hidden = false;
+  $("#email").focus();
+  const studio = safeNext && Object.values(STUDIOS).find(st => safeNext.startsWith(st.path));
+  if (studio) $("#signSub").textContent = `Sign in to open ${studio.name}.`;
+  $("#pwToggle").addEventListener("click", e => {
+    const pw = $("#password"), show = pw.type === "password";
+    pw.type = show ? "text" : "password";
+    e.currentTarget.textContent = show ? "Hide" : "Show"; e.currentTarget.setAttribute("aria-pressed", String(show));
+  });
   const msg = $("#loginMsg");
   const say = (t, cls = "") => { msg.textContent = t; msg.className = "msg " + cls; };
   $("#loginForm").addEventListener("submit", async e => {
     e.preventDefault();
-    say("Signing in…");
+    const btn = $("#signBtn"); btn.disabled = true; btn.textContent = "Signing in…"; say("");
     try {
       await signIn($("#email").value, $("#password").value);
       location.replace(safeNext || "/");
@@ -36,6 +44,7 @@ function showLogin() {
       if (c === "auth/invalid-credential" || c === "auth/wrong-password" || c === "auth/user-not-found") say("That email and password don't match. Use the link below to set a new password.", "bad");
       else if (c === "auth/too-many-requests") say("Too many tries. Wait a few minutes, or set a new password with the link below.", "bad");
       else say("Couldn't sign in. Check your connection and try again.", "bad");
+      btn.disabled = false; btn.textContent = "Sign in";
     }
   });
   $("#setPw").addEventListener("click", async () => {
@@ -53,11 +62,20 @@ const STATUS = { draft: "Draft", ready: "Ready", posted: "Posted" };
 function showHome(s) {
   $("#home").hidden = false;
   const sb = $("#sidebar"); sb.innerHTML = sidebarHTML(s, "home"); wireNav(sb);
-  $("#hello").textContent = `Hi ${s.name.split(" ")[0]}`;
+  const hour = new Date().getHours();
+  $("#hello").textContent = `${hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening"}, ${s.name.split(" ")[0]}`;
   $("#today").textContent = new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" }) + " · Design Studio";
   $("#icOpen").innerHTML = ICONS.clock; $("#icReady").innerHTML = ICONS.check; $("#icReel").innerHTML = ICONS.film;
 
   const posts = {};
+  // the stat tiles double as filters for the list
+  const FILTERS = { open: ["not posted yet", p => p.status !== "posted"], ready: ["ready to post", p => p.status === "ready"], reel: ["reel covers", p => p.format === "reel"] };
+  let filter = null;
+  document.querySelectorAll(".stat[data-filter]").forEach(b => b.addEventListener("click", () => {
+    filter = filter === b.dataset.filter ? null : b.dataset.filter;
+    document.querySelectorAll(".stat[data-filter]").forEach(x => x.setAttribute("aria-pressed", String(x.dataset.filter === filter)));
+    render();
+  }));
   $("#studios").innerHTML = Object.values(STUDIOS).map(st => `
     <article class="card studio" style="--b:${st.band};--c:${st.accent}">
       <a class="band" href="${st.path}" aria-label="Open ${esc(st.name)}"><img src="${st.logo}" alt="${esc(st.show)}"></a>
@@ -91,7 +109,10 @@ function showHome(s) {
     $("#stOpen").textContent = all.filter(p => p.status !== "posted").length;
     $("#stReady").textContent = all.filter(p => p.status === "ready").length;
     $("#stReel").textContent = all.filter(p => p.format === "reel").length;
-    $("#sched").innerHTML = all.map(p => {
+    const note = $("#filterNote");
+    note.hidden = !filter; if (filter) note.textContent = `Showing ${FILTERS[filter][0]} · tap the tile again for all`;
+    const shown = filter ? all.filter(FILTERS[filter][1]) : all;
+    $("#sched").innerHTML = shown.map(p => {
       const st = STUDIOS[p.studio];
       return `<div class="item">
         <span class="dp${p.date === from ? " today" : ""}">${p.date === from ? "Today" : esc(dayPill(p.date))}</span>
@@ -99,9 +120,9 @@ function showHome(s) {
           <a href="${st.path}#post=${encodeURIComponent(p.id)}">${esc(p.title || "Untitled")}</a>
           <small>${esc(st.show)} · ${p.format === "reel" ? "Reel cover" : `Carousel · ${(p.slides || []).length} slides`}${p.label ? " · " + esc(p.label) : ""}</small></span></span>
         <span class="acts"><span class="chip" data-s="${esc(p.status || "draft")}">${esc(STATUS[p.status] || "Draft")}</span>
-          ${can.markPosted(s.role) && p.status !== "posted" ? `<button class="btn sm" data-posted="${esc(p.studio)}/${esc(p.id)}">Mark posted</button>` : ""}</span>
+          ${can.markPosted(s.role) && p.status !== "posted" ? `<button class="btn ghost sm" data-posted="${esc(p.studio)}/${esc(p.id)}" title="Mark as posted">${ICONS.check}<span>Mark posted</span></button>` : ""}</span>
       </div>`;
-    }).join("") || `<p class="empty">Nothing scheduled in the next 14 days.</p>`;
+    }).join("") || `<p class="empty">${filter ? `Nothing ${FILTERS[filter][0]} in the next 14 days.` : "Nothing scheduled in the next 14 days."}</p>`;
   }
 
   $("#sched").addEventListener("click", async e => {

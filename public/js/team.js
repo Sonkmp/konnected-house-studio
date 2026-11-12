@@ -7,7 +7,7 @@ import {
   collection, doc, onSnapshot, setDoc, updateDoc, deleteDoc
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import {
-  db, firebaseConfig, requireMember, sidebarHTML, wireNav, can, ROLES, normEmail, sendSetPassword, esc
+  db, firebaseConfig, requireMember, sidebarHTML, wireNav, can, ROLES, normEmail, sendSetPassword, esc, initialsOf
 } from "./kh.js";
 
 const $ = s => document.querySelector(s);
@@ -55,7 +55,7 @@ onSnapshot(collection(db, "members"), snap => {
   const rows = snap.docs.map(d => ({ email: d.id, ...d.data() }))
     .sort((a, b) => (a.role === "admin" ? 0 : 1) - (b.role === "admin" ? 0 : 1) || String(a.name).localeCompare(String(b.name)));
   $("#people").innerHTML = rows.map(m => `<tr data-email="${esc(m.email)}">
-    <td>${esc(m.name || "")}</td>
+    <td><span class="person"><span class="av" aria-hidden="true">${esc(initialsOf(m.name || m.email))}</span><span>${esc(m.name || "")}</span>${m.email === s.email ? `<span class="you">You</span>` : ""}</span></td>
     <td class="e">${esc(m.email)}</td>
     <td>${m.email === s.email ? esc(ROLES[m.role] ? ROLES[m.role].label : m.role) : `<select data-role aria-label="Role for ${esc(m.email)}">${roleOptions(m.role)}</select>`}</td>
     <td style="text-align:right;white-space:nowrap">

@@ -44,8 +44,12 @@ def port(key):
     src = src.rstrip() + '\n<script type="module" src="/js/studio.js"></script>\n</body></html>\n'
 
     # ---------- header: studio switcher and account ----------
+    rep('    <div class="brand">',
+        '    <a href="/" class="kh-homelink" title="Konnected House home" aria-label="Home"><img src="/brand/kh-mark.png" alt=""></a>\n    <div class="brand">')
     rep('<div class="save" id="saveState"',
         '<nav class="kh-nav" id="khNav" aria-label="Studios"></nav>\n    <div class="save" id="saveState"')
+    rep('<div class="save" id="saveState" data-s="busy" role="status"><i></i><span>Connecting…</span></div>',
+        '<div class="save" id="saveState" data-s="busy" role="status"><i></i><span>Connecting…</span></div>\n    <div class="kh-user" id="khUser"></div>')
 
     # ---------- Carousels / Reel covers toggle replaces the format picker ----------
     rep('<span class="eyebrow">Posts</span>',
@@ -58,6 +62,7 @@ def port(key):
         </label>
 ''', '')
     rep('  confirm: null\n};', '  confirm: null, fmt: "carousel"\n};')
+    rep('function renderList(){', 'function renderList(){ fmtCounts();')
     rep('return [...state.posts.values()].sort(',
         'return [...state.posts.values()].filter(p => (p.format || "carousel") === state.fmt).sort(')
     rep('const format = $("#newFormat").value;',
@@ -74,6 +79,11 @@ def port(key):
   state.currentId = pickDefaultPost(); state.slideIdx = 0; state.confirm = null;
   if (state.currentId && !hist[state.currentId]) histInit(state.currentId);
   renderAll();
+}
+// The toggle shows how many posts each format has.
+function fmtCounts(){
+  const n = f => [...state.posts.values()].filter(p => (p.format || "carousel") === f).length;
+  document.querySelectorAll("#fmtSeg [data-fmt]").forEach(b => { b.innerHTML = `${b.dataset.fmt === "reel" ? "Reel covers" : "Carousels"} <span class="n">${n(b.dataset.fmt)}</span>`; });
 }
 // Role rules live in js/kh.js; the page only reflects them (Firestore rules enforce them).
 function syncAccess(){

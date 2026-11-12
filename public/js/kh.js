@@ -82,13 +82,17 @@ export const logOut = () => signOut(auth);
 
 export const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
+// Studio header: switch between studios (the dark studio pages).
 export function navHTML(s, current) {
-  const links = Object.values(STUDIOS).map(st =>
+  return Object.values(STUDIOS).map(st =>
     `<a href="${st.path}"${st.key === current ? ' aria-current="page"' : ""}>${esc(st.name)}</a>`).join("");
-  return `<a href="/" class="kh-home"${current === "home" ? ' aria-current="page"' : ""}>Home</a>${links}
-    ${can.team(s.role) ? `<a href="/team/"${current === "team" ? ' aria-current="page"' : ""}>Team</a>` : ""}
-    <span class="kh-me" title="${esc(s.email)}">${esc(s.name)} · ${esc(ROLES[s.role] ? ROLES[s.role].label : s.role)}</span>
-    <button type="button" class="kh-out" data-kh-out>Sign out</button>`;
+}
+export const initialsOf = name => String(name || "").split(/[\s.]+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join("") || "?";
+// Studio header: who is signed in, and sign out.
+export function userHTML(s) {
+  const role = ROLES[s.role] ? ROLES[s.role].label : s.role;
+  return `<span class="av" title="${esc(s.name)} · ${esc(role)}\n${esc(s.email)}" aria-label="Signed in as ${esc(s.name)}, ${esc(role)}">${esc(initialsOf(s.name))}</span>
+    <button type="button" class="kh-out" data-kh-out title="Sign out" aria-label="Sign out">${ICONS.out}</button>`;
 }
 const svg = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 export const ICONS = {
@@ -104,7 +108,7 @@ export const ICONS = {
 export function sidebarHTML(s, current) {
   const link = (href, key, label, icon) =>
     `<a href="${href}" class="sb-link"${key === current ? ' aria-current="page"' : ""}>${icon}<span>${esc(label)}</span></a>`;
-  const initials = s.name.split(/[\s.]+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join("") || "?";
+  const initials = initialsOf(s.name);
   return `<a href="/" class="sb-logo"><img src="/brand/kh-logo-white.png" alt="Konnected House"></a>
     <div class="sb-eyebrow">Design Studio</div>
     <nav class="sb-nav" aria-label="Site">

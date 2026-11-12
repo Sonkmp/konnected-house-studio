@@ -1,7 +1,7 @@
 // Connects a studio page (public/kmp, public/unbroken) to Firebase: checks the login,
 // then hands the studio the same db / assets / downloads interface it uses on claude.ai.
 import {
-  db, requireMember, assetStore, can, navHTML, wireNav, STUDIOS
+  db, requireMember, assetStore, can, navHTML, userHTML, wireNav, STUDIOS
 } from "./kh.js";
 import {
   collection, doc, onSnapshot, setDoc, deleteDoc
@@ -12,13 +12,15 @@ const s = await requireMember();
 
 const nav = document.getElementById("khNav");
 nav.innerHTML = navHTML(s, studio);
-wireNav(nav);
+const who = document.getElementById("khUser");
+who.innerHTML = userHTML(s);
+wireNav(who);
 
+let refreshTimer = 0;
 const assets = assetStore(studio, () => {
   clearTimeout(refreshTimer);
   refreshTimer = setTimeout(() => window.__khRefresh && window.__khRefresh(), 120);
 });
-let refreshTimer = 0;
 
 const fmtKey = "kh.fmt." + studio;
 window.KH = {

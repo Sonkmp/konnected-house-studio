@@ -22,12 +22,12 @@
   </section>
   <section class="auth-form">
     <div class="auth-card">
-      <h2>Sign in</h2>
-      <p class="sub">Use the email your admin added to the team.</p>
+      <h2 id="signTitle">Sign in</h2>
+      <p class="sub" id="signSub">Use the email your admin added to the team.</p>
       <form id="loginForm">
-        <label class="f">Email<input type="email" id="email" autocomplete="username" required></label>
-        <label class="f">Password<input type="password" id="password" autocomplete="current-password" required></label>
-        <button class="btn primary" type="submit">Sign in</button>
+        <label class="f">Email<input type="email" id="email" autocomplete="username" required autofocus></label>
+        <label class="f pw">Password<input type="password" id="password" autocomplete="current-password" required><button type="button" id="pwToggle" aria-controls="password" aria-pressed="false">Show</button></label>
+        <button class="btn primary" type="submit" id="signBtn">Sign in</button>
       </form>
       <button class="link" id="setPw" type="button" style="align-self:flex-start">First time here, or forgot your password?</button>
       <p class="msg" id="loginMsg" role="status"></p>
@@ -49,14 +49,14 @@
     </header>
 
     <div class="stats">
-      <div class="card stat"><span class="ic" id="icOpen"></span><div><b id="stOpen">–</b><span>Not posted yet · next 14 days</span></div></div>
-      <div class="card stat go"><span class="ic" id="icReady"></span><div><b id="stReady">–</b><span>Ready to post</span></div></div>
-      <div class="card stat"><span class="ic" id="icReel"></span><div><b id="stReel">–</b><span>Reel covers · next 14 days</span></div></div>
+      <button type="button" class="card stat" data-filter="open" aria-pressed="false"><span class="ic" id="icOpen"></span><span><b id="stOpen">–</b><span>Not posted yet · next 14 days</span></span></button>
+      <button type="button" class="card stat go" data-filter="ready" aria-pressed="false"><span class="ic" id="icReady"></span><span><b id="stReady">–</b><span>Ready to post</span></span></button>
+      <button type="button" class="card stat" data-filter="reel" aria-pressed="false"><span class="ic" id="icReel"></span><span><b id="stReel">–</b><span>Reel covers · next 14 days</span></span></button>
     </div>
 
     <div class="home-grid">
       <section class="card">
-        <div class="card-head"><h2>Upcoming · next 14 days</h2></div>
+        <div class="card-head"><h2>Upcoming · next 14 days</h2><span class="filter" id="filterNote" hidden></span></div>
         <div class="sched" id="sched"><p class="empty">Loading…</p></div>
       </section>
       <section>
