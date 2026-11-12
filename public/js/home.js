@@ -1,6 +1,6 @@
 // Home page: sign in, the two studios, and the two-week schedule across studios.
 import {
-  db, session, signIn, sendSetPassword, logOut, sidebarHTML, wireNav, can, STUDIOS, ICONS, esc
+  db, session, signIn, sendSetPassword, emailError, logOut, sidebarHTML, wireNav, can, STUDIOS, ICONS, esc
 } from "./kh.js";
 import {
   collection, query, where, onSnapshot, doc, updateDoc
@@ -51,7 +51,7 @@ function showLogin() {
     const email = $("#email").value.trim();
     if (!email) { say("Type your email above first, then click the link again.", "bad"); $("#email").focus(); return; }
     try { await sendSetPassword(email); say(`If ${email} is on the team, a link to set your password is on its way. Check spam too.`, "ok"); }
-    catch (err) { say(err && err.code === "auth/invalid-email" ? "That doesn't look like an email address." : "Couldn't send the link. Try again in a minute.", "bad"); }
+    catch (err) { say(emailError(err), "bad"); }
   });
 }
 

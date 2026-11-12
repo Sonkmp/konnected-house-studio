@@ -77,7 +77,23 @@ export async function requireMember() {
 }
 
 export const signIn = (email, password) => signInWithEmailAndPassword(auth, normEmail(email), password);
-export const sendSetPassword = email => sendPasswordResetEmail(auth, normEmail(email), { url: location.origin + "/" });
+// The email's button returns people to this site. If Firebase hasn't approved the address the
+// site is open on (e.g. a one-off Vercel preview URL), send it anyway without the return link.
+export async function sendSetPassword(email) {
+  try { await sendPasswordResetEmail(auth, normEmail(email), { url: location.origin + "/" }); }
+  catch (e) {
+    if (!/continue-uri|unauthorized-domain/.test((e && e.code) || "")) throw e;
+    await sendPasswordResetEmail(auth, normEmail(email));
+  }
+}
+// What to tell people when Firebase won't send the email.
+export function emailError(e) {
+  const c = (e && e.code) || "";
+  if (c === "auth/too-many-requests") return "Firebase limits how many emails one address can get. Wait an hour, then try again.";
+  if (c === "auth/invalid-email") return "That doesn't look like an email address.";
+  if (c === "auth/network-request-failed") return "No connection. Check the internet and try again.";
+  return `Couldn't send the email (${c || "unknown error"}). Try again in a minute.`;
+}
 export const logOut = () => signOut(auth);
 
 export const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));

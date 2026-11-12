@@ -7,7 +7,7 @@ import {
   collection, doc, onSnapshot, setDoc, updateDoc, deleteDoc
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import {
-  db, firebaseConfig, requireMember, sidebarHTML, wireNav, can, ROLES, normEmail, sendSetPassword, esc, initialsOf
+  db, firebaseConfig, requireMember, sidebarHTML, wireNav, can, ROLES, normEmail, sendSetPassword, emailError, esc, initialsOf
 } from "./kh.js";
 
 const $ = s => document.querySelector(s);
@@ -48,7 +48,7 @@ $("#inviteForm").addEventListener("submit", async e => {
     await sendSetPassword(email);
     say(`Added ${name || email}. They'll get an email to set their password (it can land in spam).`, "ok");
     e.target.reset(); $("#invRole").value = "designer";
-  } catch (err) { say("They're added, but the email didn't send. Try “Resend invite”.", "bad"); }
+  } catch (err) { say(`They're on the team, but the invite email didn't send. ${emailError(err)}`, "bad"); }
 });
 
 onSnapshot(collection(db, "members"), snap => {
@@ -75,7 +75,7 @@ $("#people").addEventListener("click", async e => {
   const email = tr.dataset.email;
   if (e.target.closest("[data-resend]")) {
     try { await sendSetPassword(email); say(`Sent ${email} a new link to set their password.`, "ok"); }
-    catch (err) { say("Couldn't send the email. Try again in a minute.", "bad"); }
+    catch (err) { say(emailError(err), "bad"); }
   }
   if (e.target.closest("[data-remove]")) {
     if (!confirm(`Remove ${email}? They won't be able to open the studios any more. Their work stays.`)) return;
