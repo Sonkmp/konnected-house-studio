@@ -3,6 +3,7 @@
 import {
   db, requireMember, assetStore, can, navHTML, userHTML, wireNav, STUDIOS
 } from "./kh.js";
+import { startComments } from "./comments.js";
 import {
   collection, doc, onSnapshot, setDoc, deleteDoc
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
@@ -76,3 +77,4 @@ const api = {
 
 document.title = `${STUDIOS[studio].name} · Konnected House`;
 window.__khResolve({ use: async name => api[name] || null });
+startComments(studio, s);

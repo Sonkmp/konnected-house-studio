@@ -1,10 +1,11 @@
 // Home page: sign in, the two studios, and the two-week schedule across studios.
 import {
-  db, session, signIn, sendSetPassword, emailError, logOut, sidebarHTML, wireNav, can, STUDIOS, ICONS, esc
+  db, session, signIn, sendSetPassword, emailError, logOut, sidebarHTML, wireNav, can, STUDIOS, ICONS, esc, initialsOf
 } from "./kh.js";
 import {
   collection, query, where, onSnapshot, doc, updateDoc
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { timeAgo } from "./comments.js";
 
 const $ = s => document.querySelector(s);
 const params = new URLSearchParams(location.search);
@@ -101,6 +102,28 @@ function showHome(s) {
       $("#count-" + st.key).textContent = list.length ? `${list.length} post${list.length > 1 ? "s" : ""} in the next 14 days · ${open} not posted yet` : "Nothing scheduled in the next 14 days";
       render();
     }, () => { $("#sched").innerHTML = `<p class="empty">Couldn't load the schedule. Reload to try again.</p>`; });
+  }
+
+  // open comments across both studios, newest first
+  const comments = {};
+  for (const st of Object.values(STUDIOS)) {
+    onSnapshot(query(collection(db, "studios", st.key, "comments"), where("resolved", "==", false)), snap => {
+      comments[st.key] = snap.docs.map(d => ({ id: d.id, studio: st.key, ...d.data() }));
+      renderComments();
+    }, () => { $("#cmts").innerHTML = `<p class="empty">Comments aren't switched on yet.</p>`; });
+  }
+  function renderComments() {
+    const list = Object.values(comments).flat().sort((a, b) => b.createdAt - a.createdAt);
+    $("#cmtTotal").textContent = list.length ? `${list.length} open` : "";
+    $("#cmts").innerHTML = list.slice(0, 8).map(c => {
+      const st = STUDIOS[c.studio];
+      return `<a class="cm" href="${st.path}?comments=1#post=${encodeURIComponent(c.postId)}">
+        <span class="av" aria-hidden="true">${esc(initialsOf(c.name || c.by))}</span>
+        <span><span class="cm-meta"><b>${esc(c.name || c.by)}</b><span>${esc(timeAgo(c.createdAt))}</span></span>
+          <p>${esc(c.text)}</p>
+          <small><i style="--c:${st.accent}"></i>${esc(c.postTitle || "A post")} · ${esc(st.show)}</small></span>
+      </a>`;
+    }).join("") || `<p class="empty">No open comments. Feedback the team leaves on a design shows up here.</p>`;
   }
 
   function render() {

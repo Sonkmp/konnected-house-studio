@@ -8,6 +8,7 @@ rules_version = '2';
 //   smm          edit reel covers; on carousels only mark them posted (status/caption)
 //   contributor  edit reel covers (titles and hooks)
 //   viewer       read only
+//   everyone     comment on designs
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -42,6 +43,22 @@ service cloud.firestore {
       match /presets/{key} {
         allow read: if member();
         allow write: if designs() || (reels() && key == 'reel');
+      }
+
+      // Design comments. Everyone on the team can comment, as themselves.
+      // Authors edit or delete their own; anyone who works on posts can resolve; admins can delete any.
+      match /comments/{id} {
+        allow read: if member();
+        allow create: if member()
+          && request.resource.data.by == request.auth.token.email.lower()
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 2000
+          && request.resource.data.resolved == false;
+        allow update: if member() && (
+          (resource.data.by == request.auth.token.email.lower()
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'editedAt', 'resolved', 'resolvedBy', 'resolvedAt']))
+          || (reels() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['resolved', 'resolvedBy', 'resolvedAt'])));
+        allow delete: if member() && (resource.data.by == request.auth.token.email.lower() || isAdmin());
       }
 
       // Photos: one record per photo plus its chunks. Photos are never edited, only added.

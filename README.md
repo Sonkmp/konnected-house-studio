@@ -26,6 +26,10 @@ firestore.rules    who can do what
 | Contributor | Edit reel covers (titles and hooks) |
 | Viewer | See everything and download |
 
+Everyone, viewers included, can comment on designs (Comments tab in each studio). Comments live in
+`studios/{studio}/comments`, can be pinned to a slide, and show as count badges on posts and slides
+and under **Open comments** on Home.
+
 Everyone has their own email login. Posts belong to the studio, so anyone with the right role
 can carry on a post a teammate started. The rules in `firestore.rules` enforce this; the buttons
 in the site just follow them.

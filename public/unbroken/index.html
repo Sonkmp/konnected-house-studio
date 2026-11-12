@@ -294,8 +294,10 @@ label.btn{cursor:pointer}
       <div class="tabs" role="tablist">
         <button role="tab" id="tabSlide" aria-selected="true">Slide</button>
         <button role="tab" id="tabPost" aria-selected="false">Post</button>
+        <button role="tab" id="tabComments" aria-selected="false">Comments <span class="n" id="cmtCount" hidden></span></button>
       </div>
       <div class="insp-body" id="insp"></div>
+      <div class="kh-comments" id="khComments" hidden></div>
     </aside>
     <div class="col-handle" data-col="l" role="separator" aria-orientation="vertical" aria-label="Resize the posts panel" tabindex="0" title="Drag to resize · double-click to reset"></div>
     <div class="col-handle" data-col="r" role="separator" aria-orientation="vertical" aria-label="Resize the settings panel" tabindex="0" title="Drag to resize · double-click to reset"></div>
@@ -979,6 +981,7 @@ function renderList(){ fmtCounts();
     </button>`;
   }
   list.innerHTML = html;
+  if (window.__khOnList) window.__khOnList();
 }
 function dayOptions(sel){ return DAY_ORDER.map(d => `<option value="${d}"${d === sel ? " selected" : ""}>${DAYS[d].name} · ${DAYS[d].pillar}</option>`).join(""); }
 function renderStage(){
@@ -1031,6 +1034,7 @@ function renderStage(){
     </div>`;
   scheduleRender(true);
   fitCols(); // saved panel widths still leave the slide its minimum
+  if (window.__khOnStage) window.__khOnStage();
 }
 
 function photoBar(s){
@@ -1853,6 +1857,7 @@ async function init(){
 }
 window.__studio = {state, normPost, openPost, renderAll, templateFor, drawSlide};
 // Called by js/kh.js when a photo finishes loading from the asset store.
+window.__studio.goSlide = goSlide;
 window.__khRefresh = () => {
   const typing = document.activeElement && document.activeElement.closest && document.activeElement.closest("#insp, .post-head");
   if (typing) scheduleRender(true); else { renderStage(); renderInspector(); }

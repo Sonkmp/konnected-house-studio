@@ -34,7 +34,7 @@ export const ROLES = {
   designer: { label: "Designer", blurb: "Edit and download carousels and reel covers" },
   smm: { label: "Social media manager", blurb: "Edit and download reel covers, download carousels, mark posts as posted" },
   contributor: { label: "Contributor", blurb: "Write reel cover titles and hooks" },
-  viewer: { label: "Viewer", blurb: "See what's coming up and download" }
+  viewer: { label: "Viewer", blurb: "See what's coming up, download and comment" }
 };
 
 // Mirrors firestore.rules. The rules are what actually protect the data.
@@ -45,6 +45,8 @@ export const can = {
   edit: (role, post) => DESIGNS.includes(role) || (REELS.includes(role) && fmtOf(post) === "reel"),
   create: (role, fmt) => DESIGNS.includes(role) || (REELS.includes(role) && fmt === "reel"),
   markPosted: role => ["admin", "designer", "smm"].includes(role),
+  resolve: (role, c, email) => REELS.includes(role) || (c && c.by === email),
+  removeComment: (role, c, email) => role === "admin" || (c && c.by === email),
   team: role => role === "admin"
 };
 

@@ -122,6 +122,17 @@ window.__khRefresh = () => {
   if (typing) scheduleRender(true); else { renderStage(); renderInspector(); }
 };''')
 
+    # ---------- comments (js/comments.js draws the panel and the count badges) ----------
+    rep('<button role="tab" id="tabPost" aria-selected="false">Post</button>',
+        '<button role="tab" id="tabPost" aria-selected="false">Post</button>\n'
+        '        <button role="tab" id="tabComments" aria-selected="false">Comments <span class="n" id="cmtCount" hidden></span></button>')
+    rep('      <div class="insp-body" id="insp"></div>',
+        '      <div class="insp-body" id="insp"></div>\n      <div class="kh-comments" id="khComments" hidden></div>')
+    rep('  list.innerHTML = html;\n', '  list.innerHTML = html;\n  if (window.__khOnList) window.__khOnList();\n')
+    rep('  fitCols(); // saved panel widths still leave the slide its minimum',
+        '  fitCols(); // saved panel widths still leave the slide its minimum\n  if (window.__khOnStage) window.__khOnStage();')
+    rep('window.__khRefresh = () => {', 'window.__studio.goSlide = goSlide;\nwindow.__khRefresh = () => {')
+
     out_dir = os.path.join(ROOT, "public", key)
     os.makedirs(out_dir, exist_ok=True)
     open(os.path.join(out_dir, "index.html"), "w", encoding="utf8").write(src)
