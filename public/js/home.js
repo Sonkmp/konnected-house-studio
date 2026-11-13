@@ -69,6 +69,19 @@ function showHome(s) {
   $("#icOpen").innerHTML = ICONS.clock; $("#icReady").innerHTML = ICONS.check; $("#icReel").innerHTML = ICONS.film;
 
   const posts = {};
+  // which studio and which view; remembered in this browser only
+  const pref = (k, d) => { try { return localStorage.getItem("home." + k) || d; } catch (e) { return d; } };
+  const keep = (k, v) => { try { localStorage.setItem("home." + k, v); } catch (e) { /* convenience only */ } };
+  let upStudio = STUDIOS[pref("studio", "kmp")] ? pref("studio", "kmp") : "kmp", view = pref("view", "list") === "grid" ? "grid" : "list";
+  $("#icList").innerHTML = ICONS.list; $("#icGrid").innerHTML = ICONS.grid;
+  $("#upStudio").innerHTML = Object.values(STUDIOS).map(st => `<button type="button" role="tab" data-studio="${st.key}"><span class="sw" style="--c:${st.accent}"></span>${esc(st.show)}</button>`).join("");
+  const syncCtrls = () => {
+    document.querySelectorAll("#upStudio [data-studio]").forEach(b => b.setAttribute("aria-selected", String(b.dataset.studio === upStudio)));
+    document.querySelectorAll("#upView [data-view]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.view === view)));
+  };
+  $("#upStudio").addEventListener("click", e => { const b = e.target.closest("[data-studio]"); if (!b) return; upStudio = b.dataset.studio; keep("studio", upStudio); syncCtrls(); render(); });
+  $("#upView").addEventListener("click", e => { const b = e.target.closest("[data-view]"); if (!b) return; view = b.dataset.view; keep("view", view); syncCtrls(); render(); });
+  syncCtrls();
   // the stat tiles double as filters for the list
   const FILTERS = { open: ["not posted yet", p => p.status !== "posted"], ready: ["ready to post", p => p.status === "ready"], reel: ["reel covers", p => p.format === "reel"] };
   let filter = null;
@@ -128,25 +141,40 @@ function showHome(s) {
   }
 
   function render() {
-    const all = Object.values(posts).flat()
-      .sort((a, b) => a.date.localeCompare(b.date) || a.studio.localeCompare(b.studio) || String(a.format).localeCompare(String(b.format)));
+    const all = (posts[upStudio] || [])
+      .sort((a, b) => a.date.localeCompare(b.date) || String(a.format).localeCompare(String(b.format)));
     $("#stOpen").textContent = all.filter(p => p.status !== "posted").length;
     $("#stReady").textContent = all.filter(p => p.status === "ready").length;
     $("#stReel").textContent = all.filter(p => p.format === "reel").length;
     const note = $("#filterNote");
     note.hidden = !filter; if (filter) note.textContent = `Showing ${FILTERS[filter][0]} · tap the tile again for all`;
     const shown = filter ? all.filter(FILTERS[filter][1]) : all;
+    const kind = p => p.format === "reel" ? "Reel cover" : p.format === "quote" ? "Quote card" : `Carousel · ${(p.slides || []).length} slides`;
+    const empty = `<p class="empty">${filter ? `Nothing ${FILTERS[filter][0]} in the next 14 days.` : "Nothing scheduled in the next 14 days."}</p>`;
+    $("#sched").classList.toggle("pgrid", view === "grid");
+    if (view === "grid") {
+      $("#sched").innerHTML = shown.map(p => {
+        const st = STUDIOS[p.studio], c = (p.theme && p.theme.accent) || st.accent;
+        return `<a class="pcard" href="${st.path}#post=${encodeURIComponent(p.id)}" style="--c:${st.band}">
+          <span class="pic">${p.thumb ? `<img src="${p.thumb}" alt="" loading="lazy">` : `<span class="ph" style="--c:${st.band}"><small style="color:${c}">${esc(kind(p))}</small>${esc(p.title || "Untitled")}</span>`}
+            <span class="tag${p.date === from ? " today" : ""}">${p.date === from ? "Today" : esc(dayPill(p.date))}</span>
+            <span class="chip st" data-s="${esc(p.status || "draft")}">${esc(STATUS[p.status] || "Draft")}</span></span>
+          <span class="meta"><b>${esc(p.title || "Untitled")}</b><small>${esc(kind(p))}</small></span>
+        </a>`;
+      }).join("") || empty;
+      return;
+    }
     $("#sched").innerHTML = shown.map(p => {
       const st = STUDIOS[p.studio];
       return `<div class="item">
         <span class="dp${p.date === from ? " today" : ""}">${p.date === from ? "Today" : esc(dayPill(p.date))}</span>
         <span class="t"><span class="dot" style="--c:${(p.theme && p.theme.accent) || st.accent}"></span><span>
           <a href="${st.path}#post=${encodeURIComponent(p.id)}">${esc(p.title || "Untitled")}</a>
-          <small>${esc(st.show)} · ${p.format === "reel" ? "Reel cover" : p.format === "quote" ? "Quote card" : `Carousel · ${(p.slides || []).length} slides`}${p.label ? " · " + esc(p.label) : ""}</small></span></span>
+          <small>${esc(kind(p))}${p.label ? " · " + esc(p.label) : ""}</small></span></span>
         <span class="acts"><span class="chip" data-s="${esc(p.status || "draft")}">${esc(STATUS[p.status] || "Draft")}</span>
           ${can.markPosted(s.role) && p.status !== "posted" ? `<button class="btn ghost sm" data-posted="${esc(p.studio)}/${esc(p.id)}" title="Mark as posted">${ICONS.check}<span>Mark posted</span></button>` : ""}</span>
       </div>`;
-    }).join("") || `<p class="empty">${filter ? `Nothing ${FILTERS[filter][0]} in the next 14 days.` : "Nothing scheduled in the next 14 days."}</p>`;
+    }).join("") || empty;
   }
 
   $("#sched").addEventListener("click", async e => {

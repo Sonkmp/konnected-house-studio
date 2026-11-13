@@ -5,7 +5,7 @@ import {
 } from "./kh.js";
 import { startComments } from "./comments.js";
 import {
-  collection, doc, onSnapshot, setDoc, deleteDoc
+  collection, doc, onSnapshot, setDoc, updateDoc, deleteDoc
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
 const studio = document.querySelector('meta[name="kh-studio"]').content;
@@ -56,6 +56,7 @@ function collectionApi(name) {
     onSnapshot: (next, error) => onSnapshot(ref, { includeMetadataChanges: true }, next, error),
     doc: id => ({
       set: data => wrap(setDoc(doc(ref, id), data)),
+      update: data => wrap(updateDoc(doc(ref, id), data)),
       delete: () => wrap(deleteDoc(doc(ref, id)))
     })
   };

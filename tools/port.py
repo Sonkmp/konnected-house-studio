@@ -135,6 +135,41 @@ window.__khRefresh = () => {
   if (typing) scheduleRender(true); else { renderStage(); renderInspector(); }
 };''')
 
+    # ---------- cover thumbnails for Home's grid view ----------
+    # Each save stores a small JPEG of the first slide (post.thumb). It is drawn by the same drawSlide,
+    # only scaled down; the artwork and exports are untouched.
+    rep('    await state.db.collection("posts").doc(pid).set(cleanPost(p));',
+        '    const data = cleanPost(p); try { data.thumb = khThumb(p); } catch(e){ /* a thumbnail is optional */ }\n'
+        '    await state.db.collection("posts").doc(pid).set(data);')
+    rep('      if (tp){ state.fmt = tp.format || "carousel"; openPost(tp.id); } else { state.currentId = pickDefaultPost(); renderAll(); }\n    }',
+        '      if (tp){ state.fmt = tp.format || "carousel"; openPost(tp.id); } else { state.currentId = pickDefaultPost(); renderAll(); }\n'
+        '      setTimeout(khBackfill, 2500);\n    }')
+    rep('function renderAll(){ syncAccess(); renderList();', '''function khThumb(p){
+  const s = p.slides[0]; if (!s) return null;
+  const c = document.createElement("canvas"); c.width = 270; c.height = Math.round(270 * postH(p) / W);
+  const ctx = c.getContext("2d"); ctx.setTransform(c.width / W, 0, 0, c.height / postH(p), 0, 0);
+  drawSlide(ctx, p, s, 0, p.slides.length);
+  return c.toDataURL("image/jpeg", .74);
+}
+// Posts saved before thumbnails existed get one in the background, once their photos load.
+// Only posts this person may edit, one at a time, and only the thumb field is written.
+async function khBackfill(){
+  if (state.mode !== "db" || !window.KH) return;
+  const todo = [...state.posts.values()].filter(p => !p.thumb && p.slides.length && KH.canEdit(p)).slice(0, 80);
+  for (const p of todo){
+    const s = p.slides[0];
+    await Promise.all([loadImg(s.img), loadImg(s.img2), loadImg(s.bgImg), loadImg(p.bgImg)]);
+    if (state.dirty.has(p.id) || state.saving.has(p.id)) continue;
+    try { const thumb = khThumb(p); p.thumb = thumb; await state.db.collection("posts").doc(p.id).update({thumb}); } catch(e){ /* try again next visit */ }
+    await new Promise(r => setTimeout(r, 300));
+  }
+}
+function renderAll(){ syncAccess(); renderList();''')
+
+    # the thumbnail is derived data, so undo history ignores it
+    rep('function snapStr(p){ const o = Object.assign({}, p); delete o.updatedAt; return JSON.stringify(o); }',
+        'function snapStr(p){ const o = Object.assign({}, p); delete o.updatedAt; delete o.thumb; return JSON.stringify(o); }')
+
     # icon-only buttons on narrow screens keep a tooltip
     rep('<button class="btn" id="dlSlide">Download this slide</button>', '<button class="btn" id="dlSlide" title="Download this slide (PNG)">Download this slide</button>')
 

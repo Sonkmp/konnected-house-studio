@@ -1573,6 +1573,26 @@ function syncAccess(){
   document.querySelectorAll("#fmtSeg [data-fmt]").forEach(b => { const on = b.dataset.fmt === state.fmt; b.classList.toggle("on", on); b.setAttribute("aria-selected", String(on)); });
   const nb = $("#newPostBtn"); if (nb){ nb.hidden = !!(window.KH && !KH.canCreate(state.fmt)); nb.textContent = "New " + ({carousel:"carousel", reel:"reel cover", quote:"quote card"}[state.fmt] || "post"); }
 }
+function khThumb(p){
+  const s = p.slides[0]; if (!s) return null;
+  const c = document.createElement("canvas"); c.width = 270; c.height = Math.round(270 * postH(p) / W);
+  const ctx = c.getContext("2d"); ctx.setTransform(c.width / W, 0, 0, c.height / postH(p), 0, 0);
+  drawSlide(ctx, p, s, 0, p.slides.length);
+  return c.toDataURL("image/jpeg", .74);
+}
+// Posts saved before thumbnails existed get one in the background, once their photos load.
+// Only posts this person may edit, one at a time, and only the thumb field is written.
+async function khBackfill(){
+  if (state.mode !== "db" || !window.KH) return;
+  const todo = [...state.posts.values()].filter(p => !p.thumb && p.slides.length && KH.canEdit(p)).slice(0, 80);
+  for (const p of todo){
+    const s = p.slides[0];
+    await Promise.all([loadImg(s.img), loadImg(s.img2), loadImg(s.bgImg), loadImg(p.bgImg)]);
+    if (state.dirty.has(p.id) || state.saving.has(p.id)) continue;
+    try { const thumb = khThumb(p); p.thumb = thumb; await state.db.collection("posts").doc(p.id).update({thumb}); } catch(e){ /* try again next visit */ }
+    await new Promise(r => setTimeout(r, 300));
+  }
+}
 function renderAll(){ syncAccess(); renderList(); renderStage(); renderInspector(); renderSave(); renderBanner(); }
 
 /* ---------- save state ---------- */
@@ -1595,7 +1615,7 @@ function renderBanner(){
 const timers = {}, hist = {};
 let histTimer = 0;
 function histOf(pid){ return hist[pid] || (hist[pid] = {undo:[], redo:[], last:null}); }
-function snapStr(p){ const o = Object.assign({}, p); delete o.updatedAt; return JSON.stringify(o); }
+function snapStr(p){ const o = Object.assign({}, p); delete o.updatedAt; delete o.thumb; return JSON.stringify(o); }
 function histInit(pid){ const p = state.posts.get(pid); if (p) histOf(pid).last = snapStr(p); }
 function histRecord(pid){
   const p = state.posts.get(pid), h = histOf(pid); if (!p) return;
@@ -1637,7 +1657,8 @@ async function flush(pid){
   const p = state.posts.get(pid); if (!p){ state.dirty.delete(pid); renderSave(); return; }
   state.dirty.delete(pid); state.saving.add(pid); renderSave();
   try {
-    await state.db.collection("posts").doc(pid).set(cleanPost(p));
+    const data = cleanPost(p); try { data.thumb = khThumb(p); } catch(e){ /* a thumbnail is optional */ }
+    await state.db.collection("posts").doc(pid).set(data);
     state.saveError = false;
   } catch(e){
     if (e && e.code === "invalid_argument") state.readOnly = true;
@@ -2091,6 +2112,7 @@ async function init(){
     if (first){ first = false;
       const m = location.hash.match(/^#post=(.+)$/), tp = m && state.posts.get(decodeURIComponent(m[1]));
       if (tp){ state.fmt = tp.format || "carousel"; openPost(tp.id); } else { state.currentId = pickDefaultPost(); renderAll(); }
+      setTimeout(khBackfill, 2500);
     }
   }, err => {
     clearTimeout(timer); state.stale = false;
