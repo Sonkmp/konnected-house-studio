@@ -1010,38 +1010,41 @@ function drawQuoteCard(ctx, p, s, t){
     ctx.fillStyle = inkFor(foot); spaced(ctx, line, W/2, footTop + 146, 3, "center");
   }
 }
-// White round icons with the glyphs in the footer colour: YouTube, Instagram, Facebook, TikTok | Spotify, Apple Podcasts
+// Outline icons in white, kept quiet so the quote stays the focus:
+// YouTube, Instagram, Facebook, TikTok | Spotify, Apple Podcasts
 function ubIcon(ctx, kind, cx, cy, r, ink){
-  ctx.save(); ctx.fillStyle = "#FFFFFF"; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.fill();
-  ctx.fillStyle = ink; ctx.strokeStyle = ink; ctx.lineCap = "round"; ctx.lineJoin = "round";
-  const u = r / 28;
-  if (kind === "yt"){ rr(ctx, cx - 15*u, cy - 10.5*u, 30*u, 21*u, 6*u); ctx.fill();
-    ctx.fillStyle = "#FFFFFF"; ctx.beginPath(); ctx.moveTo(cx - 4*u, cy - 6*u); ctx.lineTo(cx + 6*u, cy); ctx.lineTo(cx - 4*u, cy + 6*u); ctx.closePath(); ctx.fill(); }
-  if (kind === "ig"){ ctx.lineWidth = 3.4*u; rr(ctx, cx - 13*u, cy - 13*u, 26*u, 26*u, 8*u); ctx.stroke();
-    ctx.beginPath(); ctx.arc(cx, cy, 6*u, 0, Math.PI*2); ctx.stroke(); ctx.beginPath(); ctx.arc(cx + 7.5*u, cy - 7.5*u, 1.9*u, 0, Math.PI*2); ctx.fill(); }
-  if (kind === "fb"){ ctx.font = `800 ${Math.round(34*u)}px Poppins, Arial, sans-serif`; ctx.textAlign = "center"; ctx.fillText("f", cx + 1*u, cy + 12*u); }
-  if (kind === "tt"){ ctx.lineWidth = 4.4*u; ctx.beginPath(); ctx.moveTo(cx + 2*u, cy - 14*u); ctx.lineTo(cx + 2*u, cy + 6*u); ctx.stroke();
-    ctx.lineWidth = 3.6*u; ctx.beginPath(); ctx.arc(cx - 4*u, cy + 6*u, 6.2*u, 0, Math.PI*2); ctx.stroke();
-    ctx.lineWidth = 4*u; ctx.beginPath(); ctx.moveTo(cx + 2*u, cy - 14*u); ctx.quadraticCurveTo(cx + 4*u, cy - 6*u, cx + 12*u, cy - 6*u); ctx.stroke(); }
-  if (kind === "sp"){ ctx.lineWidth = 3.4*u; [[-7, 13, .5], [0, 11, .42], [7, 8, .34]].forEach(([dy, hw, b]) => { ctx.beginPath(); ctx.moveTo(cx - hw*u, (cy + dy*u) - 1); ctx.quadraticCurveTo(cx, cy + dy*u - hw*b*u - 1, cx + hw*u, cy + dy*u + 1.5*u); ctx.stroke(); }); }
-  if (kind === "pc"){ ctx.lineWidth = 3*u; ctx.beginPath(); ctx.arc(cx, cy - 3*u, 12*u, Math.PI*0.78, Math.PI*2.22); ctx.stroke();
-    ctx.beginPath(); ctx.arc(cx, cy - 3*u, 6.5*u, Math.PI*0.78, Math.PI*2.22); ctx.stroke();
-    ctx.beginPath(); ctx.arc(cx, cy - 3*u, 3*u, 0, Math.PI*2); ctx.fill(); rr(ctx, cx - 2.4*u, cy + 2*u, 4.8*u, 12*u, 2.4*u); ctx.fill(); }
-  ctx.restore();
+  ctx.save(); const u = r / 28, a = ctx.globalAlpha;
+  ctx.strokeStyle = ink; ctx.fillStyle = ink; ctx.lineCap = "round"; ctx.lineJoin = "round";
+  ctx.lineWidth = 2.2; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.stroke();
+  ctx.lineWidth = 2.6*u;
+  if (kind === "yt"){ rr(ctx, cx - 13*u, cy - 9*u, 26*u, 18*u, 5*u); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx - 3*u, cy - 5*u); ctx.lineTo(cx + 5*u, cy); ctx.lineTo(cx - 3*u, cy + 5*u); ctx.closePath(); ctx.fill(); }
+  if (kind === "ig"){ rr(ctx, cx - 12*u, cy - 12*u, 24*u, 24*u, 7*u); ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx, cy, 5.5*u, 0, Math.PI*2); ctx.stroke(); ctx.beginPath(); ctx.arc(cx + 7*u, cy - 7*u, 1.6*u, 0, Math.PI*2); ctx.fill(); }
+  if (kind === "fb"){ ctx.beginPath(); ctx.moveTo(cx + 6*u, cy - 13*u); ctx.quadraticCurveTo(cx - 3*u, cy - 14*u, cx - 3*u, cy - 5*u); ctx.lineTo(cx - 3*u, cy + 14*u);
+    ctx.moveTo(cx - 9*u, cy - 2*u); ctx.lineTo(cx + 5*u, cy - 2*u); ctx.stroke(); }
+  if (kind === "tt"){ ctx.beginPath(); ctx.moveTo(cx + 2*u, cy - 13*u); ctx.lineTo(cx + 2*u, cy + 6*u); ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx - 4*u, cy + 6*u, 6*u, 0, Math.PI*2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx + 2*u, cy - 13*u); ctx.quadraticCurveTo(cx + 4*u, cy - 6*u, cx + 11*u, cy - 6*u); ctx.stroke(); }
+  if (kind === "sp"){ [[-6, 12, .5], [0, 10, .42], [6, 7.5, .34]].forEach(([dy, hw, b]) => { ctx.beginPath(); ctx.moveTo(cx - hw*u, cy + dy*u - 1); ctx.quadraticCurveTo(cx, cy + dy*u - hw*b*u - 1, cx + hw*u, cy + dy*u + 1.5*u); ctx.stroke(); }); }
+  if (kind === "pc"){ ctx.beginPath(); ctx.arc(cx, cy - 3*u, 11*u, Math.PI*0.78, Math.PI*2.22); ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx, cy - 3*u, 5.5*u, Math.PI*0.78, Math.PI*2.22); ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx, cy - 3*u, 2.4*u, 0, Math.PI*2); ctx.fill(); rr(ctx, cx - 1.8*u, cy + 2*u, 3.6*u, 11*u, 1.8*u); ctx.fill(); }
+  ctx.globalAlpha = a; ctx.restore();
 }
 function ubListenBar(ctx, cy, foot, pad){
-  const r = 30, gap = 12, font = "700 31px Poppins, system-ui, sans-serif";
+  const r = 21, gap = 10, font = "400 22px Poppins, system-ui, sans-serif", sp = 2.4, ink = hexA("#FFFFFF", .82);
   ctx.save(); ctx.font = font;
-  const name = "UNBROKEN PODCAST", listen = "LISTEN ON:", nw = spacedW(ctx, name, 1), lw = spacedW(ctx, listen, 1);
+  const name = "UNBROKEN PODCAST", listen = "LISTEN ON", nw = spacedW(ctx, name, sp), lw = spacedW(ctx, listen, sp);
   const social = 4*2*r + 3*gap, apps = 2*2*r + gap;
-  const total = social + 22 + nw + 30 + 3 + 30 + lw + 18 + apps, k = Math.min(1, (W - 2*pad) / total);
+  const total = social + 20 + nw + 26 + 1.5 + 26 + lw + 16 + apps, k = Math.min(1, (W - 2*pad) / total);
   ctx.translate(W/2 - total*k/2, cy); ctx.scale(k, k);
   let x = 0;
-  ["yt", "ig", "fb", "tt"].forEach(kind => { ubIcon(ctx, kind, x + r, 0, r, foot); x += 2*r + gap; });
-  x += 22 - gap; ctx.fillStyle = "#FFFFFF"; ctx.font = font; spaced(ctx, name, x, 11, 1, "left"); x += nw + 30;
-  ctx.fillStyle = hexA("#FFFFFF", .55); ctx.fillRect(x, -26, 3, 52); x += 3 + 30;
-  ctx.fillStyle = "#FFFFFF"; spaced(ctx, listen, x, 11, 1, "left"); x += lw + 18;
-  ["sp", "pc"].forEach(kind => { ubIcon(ctx, kind, x + r, 0, r, foot); x += 2*r + gap; });
+  ["yt", "ig", "fb", "tt"].forEach(kind => { ubIcon(ctx, kind, x + r, 0, r, ink); x += 2*r + gap; });
+  x += 20 - gap; ctx.fillStyle = ink; ctx.font = font; spaced(ctx, name, x, 8, sp, "left"); x += nw + 26;
+  ctx.fillStyle = hexA("#FFFFFF", .4); ctx.fillRect(x, -16, 1.5, 32); x += 1.5 + 26;
+  ctx.fillStyle = ink; spaced(ctx, listen, x, 8, sp, "left"); x += lw + 16;
+  ["sp", "pc"].forEach(kind => { ubIcon(ctx, kind, x + r, 0, r, ink); x += 2*r + gap; });
   ctx.restore();
 }
 function inspQuote(p, s){
