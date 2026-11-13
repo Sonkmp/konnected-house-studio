@@ -393,7 +393,7 @@ function normPost(id, p){
   n.slides = (n.slides||[]).map(normSlide);
   return n;
 }
-const LOOK_KEYS = ["tpl","reelLabel","hiScale","font","hlStyle","hlLast","weight","caps","textColor","scale","lh","track","boxColor","fade","fadeH","topFade","shadow","shadowColor","fadeColor","arrowColor","bw","align","textPos","numAlpha","numScale","badgeColor","badgePos","frame","frameColor"];
+const LOOK_KEYS = ["tpl","qTheme","reelLabel","hiScale","font","hlStyle","hlLast","weight","caps","textColor","scale","lh","track","boxColor","fade","fadeH","topFade","shadow","shadowColor","fadeColor","arrowColor","bw","align","textPos","numAlpha","numScale","badgeColor","badgePos","frame","frameColor"];
 // "Use this slide's look on every slide" copies the saved-look settings plus these
 const ALL_KEYS = [...LOOK_KEYS, "hideLabel", "chipPos", "bgImg", "bgDim", "topFade"];
 const presetKey = p => single(p) ? p.format : p.day;
@@ -927,9 +927,15 @@ function drawSlide(ctx, p, s, i, n){
    A chat-bubble card: the photo sits in a rounded frame with a notch for the episode pill, the guest's
    words sit on white, and the white bubble's tail dips into a coloured footer with the episode line. */
 const QUOTE_RED = "#C9060D", QUOTE_INK = "#0D0D0D";
+// two looks for the same card: the words on white, or on black
+const QUOTE_TPLS = {
+  light: {name:"White", bg:"#FFFFFF", ink:QUOTE_INK, sub:"#4D4545", empty:"#EDEBEB", emptyInk:"#9A9292"},
+  dark:  {name:"Black", bg:"#0D0D0D", ink:"#FFFFFF", sub:"#B8AFAF", empty:"#1F1A1A", emptyInk:"#8C8381", hi:"#E3252B"} // brighter red reads better on black
+};
+const quoteTpl = s => QUOTE_TPLS[s.qTheme] || QUOTE_TPLS.light;
 const QUOTE_START = {layout:"photo", hideLabel:true, isCover:false, coverArrow:false, arrow:false, font:"round", weight:"700",
   headline:"Love is not a feeling. It is a *decision* you make every day.", sub:"- Guest name", badge:"EP 12",
-  tag:"EP 12 · Episode title goes here", textColor:QUOTE_INK, shadow:0, scale:1, lh:1, align:"center", fy:.35};
+  tag:"EP 12 · Episode title goes here", qTheme:"light", shadow:0, scale:1, lh:1, align:"center", fy:.35};
 function quoteFrame(ctx, x0, y0, x1, y1, r, notch){
   ctx.beginPath(); ctx.moveTo(x0 + r, y0);
   ctx.arcTo(x1, y0, x1, y1, r);
@@ -941,11 +947,11 @@ function quoteFrame(ctx, x0, y0, x1, y1, r, notch){
   ctx.arcTo(x0, y1, x0, y0, r); ctx.arcTo(x0, y0, x1, y0, r); ctx.closePath();
 }
 function drawQuoteCard(ctx, p, s, t){
-  const pad = 56, foot = s.fadeColor || QUOTE_RED, footTop = H - 196, sc = s.scale || 1;
-  if (!s.boxColor){ t.hi = foot; t.box = foot; } // highlights follow the footer, not the day colour (which can be white)
+  const pad = 56, foot = s.fadeColor || QUOTE_RED, footTop = H - 196, sc = s.scale || 1, T = quoteTpl(s);
+  if (!s.boxColor){ t.hi = s.fadeColor || T.hi || foot; t.box = t.hi; } // highlights follow the footer, not the day colour (which can be white)
   // coloured base, white bubble over it, and the bubble's tail
   ctx.fillStyle = foot; ctx.fillRect(0, 0, W, H);
-  ctx.fillStyle = "#FFFFFF"; rr(ctx, 0, -80, W, footTop + 80, 64); ctx.fill();
+  ctx.fillStyle = T.bg; rr(ctx, 0, -80, W, footTop + 80, 64); ctx.fill();
   const tx = Math.round(W * .62);
   ctx.beginPath(); ctx.moveTo(tx - 130, footTop - 4);
   ctx.quadraticCurveTo(tx - 12, footTop + 12, tx + 30, footTop + 98);
@@ -960,8 +966,8 @@ function drawQuoteCard(ctx, p, s, t){
   const img = getImg(s.img);
   ctx.save(); quoteFrame(ctx, x0, y0, x1, y1, 56, notch); ctx.clip();
   if (img) drawCover(ctx, img, x0, y0, x1 - x0, y1 - y0, s.fx, s.fy, s.zoom, bwOf(p, s));
-  else { ctx.fillStyle = "#EDEBEB"; ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
-    ctx.fillStyle = "#9A9292"; ctx.font = "600 30px Poppins, system-ui, sans-serif"; ctx.textAlign = "center"; ctx.fillText("Add a photo of the guest", W/2, (y0 + y1)/2); ctx.textAlign = "left"; }
+  else { ctx.fillStyle = T.empty; ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
+    ctx.fillStyle = T.emptyInk; ctx.font = "600 30px Poppins, system-ui, sans-serif"; ctx.textAlign = "center"; ctx.fillText("Add a photo of the guest", W/2, (y0 + y1)/2); ctx.textAlign = "left"; }
   ctx.restore();
   if (pillTxt){
     const px = x1 - pillW, py = y1 - pillH - 4;
@@ -977,8 +983,8 @@ function drawQuoteCard(ctx, p, s, t){
   // the guest's words, then who said it, centred in the white space
   const left = s.align === "left", maxW = x1 - x0 - (left ? 20 : 40), items = [];
   const q = (s.headline || "").trim();
-  if (q){ const it = headItem(s, /^["“'‘]/.test(q) ? q : `“${q}”`, 62 * sc, 700, maxW, 0); it.color = s.textColor || QUOTE_INK; items.push(it); }
-  if ((s.sub || "").trim()) items.push({k:"rich", text:s.sub.trim(), size:34 * sc, weight:500, maxW, lh:1.2, fam:s.font, color:"#4D4545", gap:22});
+  if (q){ const it = headItem(s, /^["“'‘]/.test(q) ? q : `“${q}”`, 62 * sc, 700, maxW, 0); it.color = s.textColor || T.ink; items.push(it); }
+  if ((s.sub || "").trim()) items.push({k:"rich", text:s.sub.trim(), size:34 * sc, weight:500, maxW, lh:1.2, fam:s.font, color:T.sub, gap:22});
   if (items.length){
     const top = y1 + 54, room = footTop - 60 - top, total = stackHeight(ctx, items);
     drawStack(ctx, items, total < room ? top + (room - total)/2 : top, left ? "left" : "center", left ? x0 + 20 : W/2, t, false);
@@ -994,7 +1000,11 @@ function drawQuoteCard(ctx, p, s, t){
 function inspQuote(p, s){
   const fc = s.fadeColor || QUOTE_RED, pc = s.badgeColor || fc;
   const sw = (key, cur) => BRAND.map(b => `<button type="button" class="sw${cur.toUpperCase() === b.c ? " on" : ""}" style="--c:${b.c}" data-act="set-color" data-key="${key}" data-c="${b.c}" aria-label="${b.n}" title="${b.n}"></button>`).join("");
-  return `<section class="grp"><h3>Quote card</h3>
+  return `<section class="grp"><h3>Template</h3>
+      <div class="tpl-grid">${Object.entries(QUOTE_TPLS).map(([k, T]) => `<button type="button" class="tpl${quoteTpl(s) === T ? " on" : ""}" data-act="qtpl" data-v="${k}"><canvas width="216" height="288" data-qtpl="${k}"></canvas><span>${T.name}</span></button>`).join("")}</div>
+      <p class="help">Same card on white or on black. Your photo and words stay when you switch.</p>
+    </section>
+    <section class="grp"><h3>Quote card</h3>
       <p class="help">Write the guest's exact words. Quote marks are added for you. Select words and click Colour to highlight them.</p>
       ${field("The quote", "headline", s.headline, {area:true, count:true, fmt:true})}
       ${field("Who said it", "sub", s.sub, {ph:"- Guest name or @handle"})}
@@ -1014,7 +1024,8 @@ function inspQuote(p, s){
       <div class="swatches"><span class="help">Highlighted words</span>
         <button type="button" class="btn sm${s.boxColor ? "" : " primary"}" data-act="box-color" data-c="">Footer colour</button>
         ${BRAND.map(b => `<button type="button" class="sw${(s.boxColor||"").toUpperCase() === b.c ? " on" : ""}" style="--c:${b.c}" data-act="box-color" data-c="${b.c}" aria-label="${b.n}" title="${b.n}"></button>`).join("")}</div>
-      <div class="swatches"><span class="help">Quote text</span>${sw("textColor", s.textColor || QUOTE_INK)}<input type="color" data-k="textColor" value="${esc(s.textColor || QUOTE_INK)}" aria-label="Custom text colour"></div>
+      <div class="swatches"><span class="help">Quote text</span>${sw("textColor", s.textColor || quoteTpl(s).ink)}<input type="color" data-k="textColor" value="${esc(s.textColor || quoteTpl(s).ink)}" aria-label="Custom text colour">
+        ${s.textColor ? `<button type="button" class="link" data-act="set-color" data-key="textColor" data-c="">Reset</button>` : ""}</div>
     </section>
     <section class="grp"><h3>Type</h3>
       <div><span class="help">Quote font</span> ${seg("font", Object.entries(FAMS).map(([k, F]) => [k, F.name]), s.font || "sans")}</div>
@@ -1399,6 +1410,11 @@ function renderInspector(){
   $("#insp").innerHTML = state.tab === "slide" ? inspSlide() : inspPost();
   foldSections();
   if (document.querySelector("canvas[data-tpl]")) renderThumbs();
+  document.querySelectorAll("canvas[data-qtpl]").forEach(c => {
+    const p = cur(), s0 = curSlide(); if (!p || !s0) return;
+    const ctx = c.getContext("2d"); ctx.save(); ctx.setTransform(c.width / W, 0, 0, c.height / postH(p), 0, 0);
+    drawSlide(ctx, p, Object.assign({}, s0, {qTheme: c.dataset.qtpl, textColor: null}), 0, 1); ctx.restore();
+  });
 }
 /* folding: which sections are folded is remembered per tab, in this browser only */
 const FOLD_KEY = "studio.folded.v1";
@@ -1812,6 +1828,7 @@ function wire(){
     if (act === "badge"){ s.badge = a.dataset.v; renderInspector(); scheduleRender(true); touch(p.id); return; }
     if (act === "post-format"){ p.format = a.dataset.v; renderAll(); touch(p.id); return; }
     if (act === "set-color"){ s[a.dataset.key] = a.dataset.c || null; renderInspector(); scheduleRender(true); touch(p.id); return; }
+    if (act === "qtpl"){ s.qTheme = a.dataset.v; s.textColor = null; renderInspector(); scheduleRender(true); touch(p.id); return; }
     if (act === "tpl"){ Object.assign(s, clone(REEL_TPLS[a.dataset.v].look), {tpl: a.dataset.v}); renderInspector(); scheduleRender(true); touch(p.id); return; }
     if (act === "save-preset" || act === "clear-preset"){
       const key = presetKey(p), look = act === "save-preset" ? lookOf(s) : null;
