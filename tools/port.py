@@ -8,7 +8,7 @@ The studio sources in studios/ are the same files the claude.ai artifacts are bu
 made there can be copied in and re-ported. Every replacement must match exactly once, so a
 change in a source fails loudly instead of producing a half-ported page.
 """
-import os, sys
+import os, re, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 STUDIOS = {
@@ -51,16 +51,17 @@ def port(key):
     rep('<div class="save" id="saveState" data-s="busy" role="status"><i></i><span>Connecting…</span></div>',
         '<div class="save" id="saveState" data-s="busy" role="status"><i></i><span>Connecting…</span></div>\n    <div class="kh-user" id="khUser"></div>')
 
-    # ---------- Carousels / Reel covers toggle replaces the format picker ----------
+    # ---------- format toggle (Carousels / Reel covers / Quote cards) replaces the format picker ----------
+    quotes = 'const QUOTE_STYLE = null;' not in src  # a studio has quote cards once its design is set
+    fmts = [("carousel", "Carousels"), ("reel", "Reels" if quotes else "Reel covers")] + ([("quote", "Quotes")] if quotes else [])
     rep('<span class="eyebrow">Posts</span>',
         '<div class="seg kh-fmt" id="fmtSeg" role="tablist" aria-label="Format">'
-        '<button type="button" role="tab" data-fmt="carousel" class="on" aria-selected="true">Carousels</button>'
-        '<button type="button" role="tab" data-fmt="reel" aria-selected="false">Reel covers</button></div>')
+        + "".join('<button type="button" role="tab" data-fmt="%s" data-label="%s" aria-selected="%s"%s>%s</button>'
+                  % (k, l, str(k == "carousel").lower(), ' class="on"' if k == "carousel" else "", l) for k, l in fmts)
+        + '</div>')
     rep('aria-expanded="false">+ New post</button>', 'aria-expanded="false">+ New</button>')
-    rep('''        <label class="f full">Format
-          <select id="newFormat"><option value="carousel">Carousel · 1080 × 1350</option><option value="reel">Reel cover · 1080 × 1440</option></select>
-        </label>
-''', '')
+    src, n = re.subn(r'        <label class="f full">Format\n\s*<select id="newFormat">.*?</select>\n\s*</label>\n', '', src, count=1)
+    if n != 1: sys.exit(f"[{key}] format picker not found")
     rep('  confirm: null\n};', '  confirm: null, fmt: "carousel"\n};')
     rep('function renderList(){', 'function renderList(){ fmtCounts();')
     rep('return [...state.posts.values()].sort(',
@@ -83,7 +84,7 @@ def port(key):
 // The toggle shows how many posts each format has.
 function fmtCounts(){
   const n = f => [...state.posts.values()].filter(p => (p.format || "carousel") === f).length;
-  document.querySelectorAll("#fmtSeg [data-fmt]").forEach(b => { b.innerHTML = `${b.dataset.fmt === "reel" ? "Reel covers" : "Carousels"} <span class="n">${n(b.dataset.fmt)}</span>`; });
+  document.querySelectorAll("#fmtSeg [data-fmt]").forEach(b => { b.innerHTML = `${b.dataset.label} <span class="n">${n(b.dataset.fmt)}</span>`; });
 }
 // Role rules live in js/kh.js; the page only reflects them (Firestore rules enforce them).
 function syncAccess(){

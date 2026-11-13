@@ -35,8 +35,9 @@ window.KH = {
   },
   startFormat() {
     if (location.hash === "#reel") return "reel";
+    if (location.hash === "#quote" && STUDIOS[studio].quotes) return "quote";
     if (location.hash === "#carousel") return "carousel";
-    try { const f = localStorage.getItem(fmtKey); if (f === "reel" || f === "carousel") return f; } catch (e) { /* ignore */ }
+    try { const f = localStorage.getItem(fmtKey); if (f === "reel" || f === "carousel" || (f === "quote" && STUDIOS[studio].quotes)) return f; } catch (e) { /* ignore */ }
     return can.create(s.role, "carousel") ? "carousel" : "reel";
   }
 };

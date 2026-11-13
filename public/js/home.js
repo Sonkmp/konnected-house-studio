@@ -86,6 +86,7 @@ function showHome(s) {
         <div class="row">
           <a class="btn primary sm" href="${st.path}#carousel">Carousels</a>
           <a class="btn sm" href="${st.path}#reel">Reel covers</a>
+          ${st.quotes ? `<a class="btn sm" href="${st.path}#quote">Quote cards</a>` : ""}
         </div>
       </div>
     </article>`).join("");
@@ -141,7 +142,7 @@ function showHome(s) {
         <span class="dp${p.date === from ? " today" : ""}">${p.date === from ? "Today" : esc(dayPill(p.date))}</span>
         <span class="t"><span class="dot" style="--c:${(p.theme && p.theme.accent) || st.accent}"></span><span>
           <a href="${st.path}#post=${encodeURIComponent(p.id)}">${esc(p.title || "Untitled")}</a>
-          <small>${esc(st.show)} · ${p.format === "reel" ? "Reel cover" : `Carousel · ${(p.slides || []).length} slides`}${p.label ? " · " + esc(p.label) : ""}</small></span></span>
+          <small>${esc(st.show)} · ${p.format === "reel" ? "Reel cover" : p.format === "quote" ? "Quote card" : `Carousel · ${(p.slides || []).length} slides`}${p.label ? " · " + esc(p.label) : ""}</small></span></span>
         <span class="acts"><span class="chip" data-s="${esc(p.status || "draft")}">${esc(STATUS[p.status] || "Draft")}</span>
           ${can.markPosted(s.role) && p.status !== "posted" ? `<button class="btn ghost sm" data-posted="${esc(p.studio)}/${esc(p.id)}" title="Mark as posted">${ICONS.check}<span>Mark posted</span></button>` : ""}</span>
       </div>`;

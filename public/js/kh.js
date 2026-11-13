@@ -26,7 +26,7 @@ export const db = initializeFirestore(app, {
 
 export const STUDIOS = {
   kmp: { key: "kmp", name: "KMP Studio", show: "Konnected Minds", path: "/kmp/", logo: "/brand/kmp-logo-full.png", accent: "#4CA4C6", band: "#0A0D24" },
-  unbroken: { key: "unbroken", name: "Unbroken Studio", show: "Unbroken Podcast", path: "/unbroken/", logo: "/brand/unbroken-logo-full.png", accent: "#C9060D", band: "#0D0D0D" }
+  unbroken: { key: "unbroken", name: "Unbroken Studio", show: "Unbroken Podcast", path: "/unbroken/", logo: "/brand/unbroken-logo-full.png", accent: "#C9060D", band: "#0D0D0D", quotes: true }
 };
 
 export const ROLES = {

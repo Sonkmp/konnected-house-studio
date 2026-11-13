@@ -272,7 +272,7 @@ label.btn{cursor:pointer}
   <main class="work">
     <aside class="panel posts" aria-label="Posts">
       <div class="posts-head">
-        <div class="seg kh-fmt" id="fmtSeg" role="tablist" aria-label="Format"><button type="button" role="tab" data-fmt="carousel" class="on" aria-selected="true">Carousels</button><button type="button" role="tab" data-fmt="reel" aria-selected="false">Reel covers</button></div>
+        <div class="seg kh-fmt" id="fmtSeg" role="tablist" aria-label="Format"><button type="button" role="tab" data-fmt="carousel" data-label="Carousels" aria-selected="true" class="on">Carousels</button><button type="button" role="tab" data-fmt="reel" data-label="Reel covers" aria-selected="false">Reel covers</button></div>
         <button class="btn sm" id="newPostBtn" aria-expanded="false">+ New</button>
       </div>
       <form class="newform" id="newForm" hidden>
@@ -313,7 +313,11 @@ label.btn{cursor:pointer}
 const W = 1080, MARGIN = 100;
 const TOP_NUDGE = 14; // label, top badge and logo sit this much lower than the margin line
 let H = 1350;
-const postH = p => p && p.format === "reel" ? 1440 : 1350;
+const postH = p => p && (p.format === "reel" || p.format === "quote") ? 1440 : 1350;
+// Quote cards are one 1080 × 1440 image. Each studio sets its own design here; null = no quote cards yet.
+const QUOTE_STYLE = null;
+const single = p => !!p && (p.format === "reel" || p.format === "quote");
+const FORMAT_NAME = {carousel:"Carousel", reel:"Reel cover", quote:"Quote card"};
 let M = MARGIN, SAFE_B = 160, IS_REEL = false; // side margin and bottom safe zone, set per post in drawSlide
 const LOGO_FULL_SRC = "/brand/kmp-logo-full.png";
 const LOGO_MARK_SRC = "/brand/kmp-mark.png";
@@ -400,8 +404,8 @@ function normPost(id, p){
 const LOOK_KEYS = ["tpl","reelLabel","hiScale","font","hlStyle","hlLast","weight","caps","textColor","scale","lh","track","boxColor","fade","fadeH","topFade","shadow","shadowColor","fadeColor","arrowColor","bw","align","textPos","numAlpha","numScale","badgeColor","badgePos"];
 // "Use this slide's look on every slide" copies the saved-look settings plus these
 const ALL_KEYS = [...LOOK_KEYS, "hideLabel", "chipPos", "bgImg", "bgDim", "topFade"];
-const presetKey = p => p.format === "reel" ? "reel" : p.day;
-const presetLabel = key => key === "reel" ? "reel covers" : `${DAYS[key] ? DAYS[key].name : key} carousels`;
+const presetKey = p => single(p) ? p.format : p.day;
+const presetLabel = key => key === "reel" ? "reel covers" : key === "quote" ? "quote cards" : `${DAYS[key] ? DAYS[key].name : key} carousels`;
 function lookOf(s){ const o = {}; LOOK_KEYS.forEach(k => { if (s[k] !== undefined) o[k] = s[k]; }); return clone(o); }
 /* reel cover templates: a template only restyles the cover; the photo and words stay */
 const REEL_BASE = {weight:"", caps:false, hlStyle:"same", hiScale:1, lh:1, track:0, align:"center", textPos:"bottom", fade:1.25, fadeH:.6, topFade:.35, shadow:.6, badgePos:"above"};
@@ -415,6 +419,7 @@ const REEL_TPLS = {
 };
 const BADGES = ["Exclusive", "Hard truth", "New episode", "Must watch", "Story time", "Unfiltered", "Part 1"];
 function templateFor(day, format){
+  if (format === "quote") return [S(clone(QUOTE_START))];
   if (format === "reel") return [S({...clone(REEL_TPLS.bold.look), tpl:"bold", isCover:true, hideLabel:true, coverArrow:false, headline:"The guest's boldest line, *8 words* max", badge:"Hard truth"})];
   const d = DAYS[day], Q = "\"Their words go here, *15 words* or fewer.\"";
   const cover = h => S({isCover:true, headline:h});
@@ -819,7 +824,7 @@ function drawSplitLayout(ctx, p, s, t){
   drawHalf(ctx, p, s, t, 1); drawHalf(ctx, p, s, t, 2);
   ctx.fillStyle = t.base; ctx.fillRect(0, H/2 - 3, W, 6);
 }
-function arrowShown(s, i, n, p){ return s.arrow ?? (!(p && p.format === "reel") && i < n - 1); }
+function arrowShown(s, i, n, p){ return s.arrow ?? (!single(p) && i < n - 1); }
 function drawSwipe(ctx, color){
   const x1 = W - M, x0 = x1 - 54, y = H - 92;
   ctx.save();
@@ -828,7 +833,7 @@ function drawSwipe(ctx, color){
   ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x1, y); ctx.moveTo(x1 - 15, y - 15); ctx.lineTo(x1, y); ctx.lineTo(x1 - 15, y + 15); ctx.stroke();
   ctx.restore();
 }
-function logoShown(s, i, n, p){ return s.layout !== "cta" && (s.showLogo ?? ((p && p.format === "reel") || i === 0 || i === n - 1)); }
+function logoShown(s, i, n, p){ return s.layout !== "cta" && (s.showLogo ?? (single(p) || i === 0 || i === n - 1)); }
 function drawSlide(ctx, p, s, i, n){
   H = postH(p); IS_REEL = p.format === "reel";
   // a reel cover is a single image: no layouts, labels, arrows or counters
@@ -844,6 +849,7 @@ function drawSlide(ctx, p, s, i, n){
   SHADOW = clamp(s.shadow ?? .45, 0, 1); SHADOW_C = s.shadowColor || "#000000";
   t.fade = s.fadeColor || t.base;
   if (s.boxColor){ t.hi = s.boxColor; t.box = s.boxColor; } else t.box = t.accent;
+  if (p.format === "quote"){ drawQuoteCard(ctx, p, s, t); ctx.restore(); return; }
   ({split:drawSplitLayout, step:drawStepLayout, cta:drawCtaLayout}[s.layout] || drawPhotoLayout)(ctx, p, s, t);
   shadowOn(ctx, false);
   const badgeTop = s.badge && s.badgePos === "top-left" && s.layout !== "cta" && s.layout !== "split";
@@ -855,6 +861,111 @@ function drawSlide(ctx, p, s, i, n){
   if (p.showCounter && !IS_REEL){ ctx.font = "700 24px Montserrat, system-ui, sans-serif"; ctx.fillStyle = "rgba(255,255,255,.88)"; spaced(ctx, `${pad2(i+1)} / ${pad2(n)}`, W - M, (logoOn ? 166 : 97) + TOP_NUDGE, 2, "right"); }
   else if (!logoOn && s.layout === "split" && MARK.complete && MARK.naturalWidth){ const h = 50, w = h * MARK.naturalWidth / MARK.naturalHeight; ctx.globalAlpha = .92; ctx.drawImage(MARK, W - M - w, 63 + TOP_NUDGE, w, h); ctx.globalAlpha = 1; }
   ctx.restore();
+}
+
+/* ---------- quote card ----------
+   A chat-bubble card: the photo sits in a rounded frame with a notch for the episode pill, the guest's
+   words sit on white, and the white bubble's tail dips into a coloured footer with the episode line. */
+const QUOTE_RED = "#C9060D", QUOTE_INK = "#0D0D0D";
+const QUOTE_START = {layout:"photo", hideLabel:true, isCover:false, coverArrow:false, arrow:false, font:"round", weight:"700",
+  headline:"Love is not a feeling. It is a *decision* you make every day.", sub:"- Guest name", badge:"EP 12",
+  tag:"EP 12 · Episode title goes here", textColor:QUOTE_INK, shadow:0, scale:1, lh:1, align:"center", fy:.35};
+function quoteFrame(ctx, x0, y0, x1, y1, r, notch){
+  ctx.beginPath(); ctx.moveTo(x0 + r, y0);
+  ctx.arcTo(x1, y0, x1, y1, r);
+  if (notch){ const [nw, nh] = notch;
+    ctx.arcTo(x1, y1 - nh, x1 - nw, y1 - nh, r);       // corner above the pill
+    ctx.arcTo(x1 - nw, y1 - nh, x1 - nw, y1, r * .8);   // the inward step
+    ctx.arcTo(x1 - nw, y1, x0, y1, r);
+  } else ctx.arcTo(x1, y1, x0, y1, r);
+  ctx.arcTo(x0, y1, x0, y0, r); ctx.arcTo(x0, y0, x1, y0, r); ctx.closePath();
+}
+function drawQuoteCard(ctx, p, s, t){
+  const pad = 56, foot = s.fadeColor || QUOTE_RED, footTop = H - 196, sc = s.scale || 1;
+  if (!s.boxColor){ t.hi = foot; t.box = foot; } // highlights follow the footer, not the day colour (which can be white)
+  // coloured base, white bubble over it, and the bubble's tail
+  ctx.fillStyle = foot; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = "#FFFFFF"; rr(ctx, 0, -80, W, footTop + 80, 64); ctx.fill();
+  const tx = Math.round(W * .62);
+  ctx.beginPath(); ctx.moveTo(tx - 130, footTop - 4);
+  ctx.quadraticCurveTo(tx - 12, footTop + 12, tx + 30, footTop + 98);
+  ctx.quadraticCurveTo(tx + 38, footTop + 40, tx + 62, footTop - 4); ctx.closePath(); ctx.fill();
+  // episode pill, sized to its text; the photo frame steps around it
+  const x0 = pad, y0 = pad, x1 = W - pad, y1 = 812;
+  const pillTxt = (s.badge || "").trim().toUpperCase(), pillH = 84, pillPad = 38;
+  ctx.font = "700 36px Poppins, system-ui, sans-serif";
+  const pillW = pillTxt ? spacedW(ctx, pillTxt, 1.5) + pillPad * 2 : 0;
+  const notch = pillTxt ? [pillW + 26, 118] : null;
+  // photo
+  const img = getImg(s.img);
+  ctx.save(); quoteFrame(ctx, x0, y0, x1, y1, 56, notch); ctx.clip();
+  if (img) drawCover(ctx, img, x0, y0, x1 - x0, y1 - y0, s.fx, s.fy, s.zoom, bwOf(p, s));
+  else { ctx.fillStyle = "#EDEBEB"; ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
+    ctx.fillStyle = "#9A9292"; ctx.font = "600 30px Poppins, system-ui, sans-serif"; ctx.textAlign = "center"; ctx.fillText("Add a photo of the guest", W/2, (y0 + y1)/2); ctx.textAlign = "left"; }
+  ctx.restore();
+  if (pillTxt){
+    const px = x1 - pillW, py = y1 - pillH - 4;
+    rr(ctx, px, py, pillW, pillH, pillH/2); ctx.fillStyle = s.badgeColor || foot; ctx.fill();
+    ctx.fillStyle = inkFor(s.badgeColor || foot); ctx.font = "700 36px Poppins, system-ui, sans-serif";
+    spaced(ctx, pillTxt, px + pillPad, py + pillH/2 + 13, 1.5, "left");
+  }
+  // logo on the photo
+  if (s.showLogo !== false && LOGO.complete && LOGO.naturalWidth){
+    const lh = 88, lw = lh * LOGO.naturalWidth / LOGO.naturalHeight;
+    ctx.save(); ctx.shadowColor = "rgba(0,0,0,.45)"; ctx.shadowBlur = 22; ctx.drawImage(LOGO, x0 + 36, y0 + 32, lw, lh); ctx.restore();
+  }
+  // the guest's words, then who said it, centred in the white space
+  const left = s.align === "left", maxW = x1 - x0 - (left ? 20 : 40), items = [];
+  const q = (s.headline || "").trim();
+  if (q){ const it = headItem(s, /^["“'‘]/.test(q) ? q : `“${q}”`, 62 * sc, 700, maxW, 0); it.color = s.textColor || QUOTE_INK; items.push(it); }
+  if ((s.sub || "").trim()) items.push({k:"rich", text:s.sub.trim(), size:34 * sc, weight:500, maxW, lh:1.2, fam:s.font, color:"#4D4545", gap:22});
+  if (items.length){
+    const top = y1 + 54, room = footTop - 60 - top, total = stackHeight(ctx, items);
+    drawStack(ctx, items, total < room ? top + (room - total)/2 : top, left ? "left" : "center", left ? x0 + 20 : W/2, t, false);
+  }
+  // episode line in the footer, shrunk to fit
+  const line = (s.tag || "").trim().toUpperCase();
+  if (line){
+    let size = 25; ctx.font = `700 ${size}px Poppins, system-ui, sans-serif`;
+    while (size > 15 && spacedW(ctx, line, 3) > W - 2*pad){ size--; ctx.font = `700 ${size}px Poppins, system-ui, sans-serif`; }
+    ctx.fillStyle = inkFor(foot); spaced(ctx, line, W/2, footTop + 146, 3, "center");
+  }
+}
+function inspQuote(p, s){
+  const fc = s.fadeColor || QUOTE_RED, pc = s.badgeColor || fc;
+  const sw = (key, cur) => BRAND.map(b => `<button type="button" class="sw${cur.toUpperCase() === b.c ? " on" : ""}" style="--c:${b.c}" data-act="set-color" data-key="${key}" data-c="${b.c}" aria-label="${b.n}" title="${b.n}"></button>`).join("");
+  return `<section class="grp"><h3>Quote card</h3>
+      <p class="help">Write the guest's exact words. Quote marks are added for you. Select words and click Colour to highlight them.</p>
+      ${field("The quote", "headline", s.headline, {area:true, count:true, fmt:true})}
+      ${field("Who said it", "sub", s.sub, {ph:"- Guest name or @handle"})}
+      ${field("Episode pill", "badge", s.badge, {ph:"e.g. EP 12 or S01/E13"})}
+      ${field("Footer line", "tag", s.tag, {ph:"e.g. EP 12 · Before you say I do with ..."})}
+    </section>
+    <section class="grp"><h3>Photo</h3>
+      ${picker(p, s, "img", "Guest photo")}
+      ${hasPhoto(s) ? `<div><span class="help">Black &amp; white</span> ${seg("bw", [["auto", "Day default"], ["on", "On"], ["off", "Off"]], s.bw === true ? "on" : s.bw === false ? "off" : "auto")}</div>` : ""}
+      <label class="toggle"><input type="checkbox" data-k="showLogo" ${s.showLogo !== false ? "checked" : ""}> Show the logo on the photo</label>
+    </section>
+    <section class="grp"><h3>Colours</h3>
+      <div class="swatches"><span class="help">Footer</span>${sw("fadeColor", fc)}<input type="color" data-k="fadeColor" value="${esc(fc)}" aria-label="Custom footer colour">
+        ${s.fadeColor ? `<button type="button" class="link" data-act="set-color" data-key="fadeColor" data-c="">Reset</button>` : ""}</div>
+      <div class="swatches"><span class="help">Episode pill</span>${sw("badgeColor", pc)}<input type="color" data-k="badgeColor" value="${esc(pc)}" aria-label="Custom pill colour">
+        ${s.badgeColor ? `<button type="button" class="link" data-act="set-color" data-key="badgeColor" data-c="">Same as footer</button>` : ""}</div>
+      <div class="swatches"><span class="help">Highlighted words</span>
+        <button type="button" class="btn sm${s.boxColor ? "" : " primary"}" data-act="box-color" data-c="">Footer colour</button>
+        ${BRAND.map(b => `<button type="button" class="sw${(s.boxColor||"").toUpperCase() === b.c ? " on" : ""}" style="--c:${b.c}" data-act="box-color" data-c="${b.c}" aria-label="${b.n}" title="${b.n}"></button>`).join("")}</div>
+      <div class="swatches"><span class="help">Quote text</span>${sw("textColor", s.textColor || QUOTE_INK)}<input type="color" data-k="textColor" value="${esc(s.textColor || QUOTE_INK)}" aria-label="Custom text colour"></div>
+    </section>
+    <section class="grp"><h3>Type</h3>
+      <div><span class="help">Quote font</span> ${seg("font", Object.entries(FAMS).map(([k, F]) => [k, F.name]), s.font || "sans")}</div>
+      <div><span class="help">Weight</span> ${seg("weight", WEIGHTS, s.weight || "")}</div>
+      ${slider("Text size", "scale", s.scale || 1, .7, 1.5, .01)}
+      ${slider("Line spacing", "lh", s.lh || 1, .75, 1.6, .01)}
+      ${slider("Letter spacing", "track", s.track || 0, -4, 14, .5)}
+      ${seg("align", [["center", "Centred"], ["left", "Left"]], s.align)}
+      <button type="button" class="btn sm ghost" data-act="save-preset">Save this look for new quote cards</button>
+      ${state.presets.quote ? `<button type="button" class="link" data-act="clear-preset" style="align-self:flex-start">Forget the saved look for quote cards</button>` : ""}
+    </section>`;
 }
 
 /* preview-only overlay: the margin box, the bottom safe zone and the profile-grid crop */
@@ -930,7 +1041,7 @@ function renderStage(){
     </div>`;
     return;
   }
-  const n = p.slides.length, reel = p.format === "reel";
+  const n = p.slides.length, reel = single(p);
   st.innerHTML = `
     <div class="post-head">
       <input type="text" class="title-input" id="postTitle" value="${esc(p.title)}" aria-label="Post title" data-pk="title">
@@ -946,7 +1057,7 @@ function renderStage(){
       <span class="hint" title="← → move between slides · ⌘/Ctrl Z undo">Keys: ← →</span>
       <label class="toggle hint"><input type="checkbox" id="guidesChk" ${state.guides ? "checked" : ""}> Show guides</label>
       <span class="grow"></span>
-      ${reel ? `<button class="btn primary" id="dlSlide">Download cover (PNG)</button>` : `<button class="btn" id="dlSlide">Download this slide</button>
+      ${reel ? `<button class="btn primary" id="dlSlide">Download ${p.format === "quote" ? "card" : "cover"} (PNG)</button>` : `<button class="btn" id="dlSlide">Download this slide</button>
       <button class="btn primary" id="dlZip">Download ZIP</button>`}
     </div>
     <div class="editor${reel ? " single" : ""}">
@@ -956,7 +1067,7 @@ function renderStage(){
       <div class="stagebox"><div class="canvas-wrap" style="--ar:${W/postH(p)}"><canvas id="preview" width="${W}" height="${postH(p)}" style="aspect-ratio:${W}/${postH(p)}" role="img" aria-label="Slide preview"></canvas></div></div>
       ${reel ? "<span></span>" : `<button class="nav" id="nextSlide" aria-label="Next slide"${state.slideIdx >= n-1 ? " disabled" : ""}>›</button>`}
     </div>
-    <div class="under"><div class="viewer-foot"><span>${reel ? "Reel cover · 1080 × 1440" : `Slide ${state.slideIdx+1} of ${n}`}</span><span>${hasPhoto(curSlide()||{}) ? "Drag the photo to move it" : "No photo on this slide"}</span></div>
+    <div class="under"><div class="viewer-foot"><span>${reel ? `${FORMAT_NAME[p.format]} · 1080 × 1440` : `Slide ${state.slideIdx+1} of ${n}`}</span><span>${hasPhoto(curSlide()||{}) ? "Drag the photo to move it" : "No photo on this slide"}</span></div>
     ${photoBar(curSlide())}</div>
     </div>
     ${reel ? "" : `<div class="col-handle" data-col="s" role="separator" aria-orientation="vertical" aria-label="Resize the slide strip" tabindex="0" title="Drag to resize · double-click to reset"></div>
@@ -1037,6 +1148,7 @@ function bgPicker(p, scope, ref, label, note){
 function inspSlide(){
   const p = cur(), s = curSlide();
   if (!p || !s) return `<p class="help">Open a post to edit its slides.</p>`;
+  if (p.format === "quote") return inspQuote(p, s);
   const reel = p.format === "reel", L = reel ? "photo" : s.layout, parts = [];
   if (reel){
     parts.push(`<section class="grp"><h3>Cover template</h3>
@@ -1172,9 +1284,10 @@ function inspPost(){
   return `
   <section class="grp"><h3>Format</h3>
     <div class="seg">${[["carousel", "Carousel · 1080 × 1350"], ["reel", "Reel cover · 1080 × 1440"]].map(([v, l]) => `<button type="button" data-act="post-format" data-v="${v}" class="${(p.format || "carousel") === v ? "on" : ""}">${l}</button>`).join("")}</div>
+    ${p.format === "quote" ? `<p class="help">One static image at 1080 × 1440: a photo, the guest's words and the episode. Edit it in the Slide tab.</p>` : ""}
     ${p.format === "reel" ? `<p class="help">One static image at 1080 × 1440, the size your profile grid shows. Pick a cover template in the Slide tab.</p>` : ""}
   </section>
-  ${p.format === "reel" ? "" : `<section class="grp"><h3>Pillar label</h3>
+  ${single(p) ? "" : `<section class="grp"><h3>Pillar label</h3>
     ${field("Label on the slides", "label", p.label, {ph:d.pillar})}
     <label class="toggle"><input type="checkbox" data-pk="showCounter" ${p.showCounter ? "checked" : ""}> Show slide counter (01 / 07)</label>
   </section>`}
@@ -1245,7 +1358,7 @@ function setFmt(f){
 // The toggle shows how many posts each format has.
 function fmtCounts(){
   const n = f => [...state.posts.values()].filter(p => (p.format || "carousel") === f).length;
-  document.querySelectorAll("#fmtSeg [data-fmt]").forEach(b => { b.innerHTML = `${b.dataset.fmt === "reel" ? "Reel covers" : "Carousels"} <span class="n">${n(b.dataset.fmt)}</span>`; });
+  document.querySelectorAll("#fmtSeg [data-fmt]").forEach(b => { b.innerHTML = `${b.dataset.label} <span class="n">${n(b.dataset.fmt)}</span>`; });
 }
 // Role rules live in js/kh.js; the page only reflects them (Firestore rules enforce them).
 function syncAccess(){
@@ -1338,14 +1451,14 @@ function toast(msg){ const t = $("#toast"); t.textContent = msg; t.hidden = fals
 
 /* ---------- selection ---------- */
 function openPost(id, idx = 0){
-  const target = state.posts.get(id); if (target && target.format === "reel") idx = 0;
+  const target = state.posts.get(id); if (single(target)) idx = 0;
   state.currentId = id; state.slideIdx = idx; state.confirm = null;
   const p = cur(); if (p){ entry(p.bgImg); p.slides.forEach(s => { entry(s.img); entry(s.img2); entry(s.bgImg); }); if (!hist[id]) histInit(id); }
   renderAll();
 }
 function goSlide(i){
   const p = cur(); if (!p) return;
-  if (p.format === "reel") i = 0;
+  if (single(p)) i = 0;
   state.slideIdx = clamp(i, 0, p.slides.length - 1); state.confirm = null;
   renderStage(); if (state.tab === "slide") renderInspector();
 }
@@ -1414,7 +1527,7 @@ async function renderToBlob(p, s, i){
   drawSlide(c.getContext("2d"), p, s, i, p.slides.length);
   return await new Promise((res, rej) => c.toBlob(b => b ? res(b) : rej(new Error("render")), "image/png"));
 }
-function fileBase(p){ return [p.date || "undated", p.day, p.format === "reel" ? "reel-cover" : "", slug(p.title)].filter(Boolean).join("_"); }
+function fileBase(p){ return [p.date || "undated", p.day, p.format === "reel" ? "reel-cover" : p.format === "quote" ? "quote-card" : "", slug(p.title)].filter(Boolean).join("_"); }
 async function saveFile(filename, data){
   if (!state.downloads){ toast("Downloads aren't available in this view. Open the studio on claude.ai to download."); return false; }
   try { await state.downloads.save({filename, data}); return true; }
@@ -1530,9 +1643,9 @@ function wire(){
     const id = `${date || "undated"}-${day}-${uid().slice(0, 4)}`;
     const format = state.fmt;
     if (window.KH && !KH.canCreate(format)){ toast(`Your role can't start ${format === "reel" ? "reel covers" : "carousels"}.`); return; }
-    const slides = templateFor(day, format), look = state.presets[format === "reel" ? "reel" : day];
+    const slides = templateFor(day, format), look = state.presets[format === "carousel" ? day : format];
     if (look) slides.forEach(x => Object.assign(x, clone(look)));
-    state.posts.set(id, normPost(id, {title: `${format === "reel" ? "Reel cover" : DAYS[day].pillar} · ${fmtDate(date)}`, format, date, day, status:"draft", slides, showCounter: format !== "reel" && day === "sun"}));
+    state.posts.set(id, normPost(id, {title: `${format === "carousel" ? DAYS[day].pillar : FORMAT_NAME[format]} · ${fmtDate(date)}`, format, date, day, status:"draft", slides, showCounter: format === "carousel" && day === "sun"}));
     $("#newForm").hidden = true; $("#newPostBtn").setAttribute("aria-expanded", "false");
     openPost(id); touch(id, true);
   });
