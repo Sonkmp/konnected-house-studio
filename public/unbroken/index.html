@@ -1009,7 +1009,7 @@ function drawQuoteCard(ctx, p, s, t){
   // "who said it" in a light weight (drawn plainly: the quote fonts force a bold minimum)
   const subTxt = (s.sub || "").trim().replace(/[*=]/g, ""), subSize = 34 * sc, subFont = `400 ${subSize}px Poppins, system-ui, sans-serif`;
   ctx.font = subFont; const subLines = subTxt ? wrapPlain(ctx, subTxt, maxW) : [];
-  const quoteH = items.length ? stackHeight(ctx, items) : 0, gap = 46, subH = subLines.length ? (quoteH ? gap : 0) + subLines.length * subSize * 1.25 : 0;
+  const quoteH = items.length ? stackHeight(ctx, items) : 0, gap = 68, subH = subLines.length ? (quoteH ? gap : 0) + subLines.length * subSize * 1.25 : 0;
   if (quoteH || subH){
     const top = y1 + 54, room = footTop - 60 - top, total = quoteH + subH, ty = total < room ? top + (room - total)/2 : top, tx = left ? x0 + 20 : W/2;
     if (quoteH) drawStack(ctx, items, ty, left ? "left" : "center", tx, t, false);
