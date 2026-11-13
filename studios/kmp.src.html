@@ -412,14 +412,14 @@ function normPost(id, p){
   n.slides = (n.slides||[]).map(normSlide);
   return n;
 }
-const LOOK_KEYS = ["logoX","logoY","logoK","labelX","labelY","labelK","tpl","qTheme","footMode","reelLabel","hiScale","font","hlStyle","hlLast","weight","caps","textColor","scale","lh","track","boxColor","fade","fadeH","topFade","shadow","shadowColor","fadeColor","arrowColor","bw","align","textPos","numAlpha","numScale","badgeColor","badgePos"];
+const LOOK_KEYS = ["logoX","logoY","logoK","labelX","labelY","labelK","tpl","qTheme","footMode","reelLabel","hiScale","font","hlStyle","hlLast","weight","caps","textColor","scale","lh","track","boxColor","fade","fadeH","topFade","shadow","shadowColor","fadeColor","arrowColor","bw","align","textPos","numAlpha","numScale","badgeColor","badgePos","dim","fade2","fadeH2","dim2"];
 // "Copy this slide to the middle slides" also copies the layout and the photos with their framing
 const FRAME_KEYS = ["layout", "textOnly", "img", "fx", "fy", "zoom", "img2", "fx2", "fy2", "zoom2", "showLogo", "arrow"];
 // the middle slides: everything but the cover (first slide or a cover hook) and the closing CTA
 const isMiddle = (p, x, j) => j > 0 && !x.isCover && x.layout !== "cta";
 // "Use this slide's look on every slide" copies the saved-look settings plus these
 const ALL_KEYS = [...LOOK_KEYS, "hideLabel", "chipPos", "bgImg", "bgDim", "topFade"];
-const PLACE_KEYS = ["logoX","logoY","logoK","labelX","labelY","labelK"];
+const PLACE_KEYS = ["logoX","logoY","logoK","labelX","labelY","labelK","textX","textY","text2X","text2Y"];
 const presetKey = p => single(p) ? p.format : p.day;
 const presetLabel = key => key === "reel" ? "reel covers" : key === "quote" ? "quote cards" : `${DAYS[key] ? DAYS[key].name : key} carousels`;
 function lookOf(s){ const o = {}; LOOK_KEYS.forEach(k => { if (s[k] !== undefined) o[k] = s[k]; }); return clone(o); }
@@ -703,7 +703,15 @@ function measure(ctx, it){
   return it.h = 0;
 }
 function stackHeight(ctx, items){ return items.reduce((s, it, i) => s + measure(ctx, it) + (i ? it.gap || 0 : 0), 0); }
+let TXT = null;   // set by drawSlide: the next text block drawn is the slide's movable text
 function drawStack(ctx, items, top, align, x0, t, shadow){
+  const tk = TXT && TXT.key;
+  if (tk){
+    TXT.key = null;
+    const h = stackHeight(ctx, items), w = W - 2*M;
+    khPush(ctx, TXT.s, tk, {x: align === "left" ? x0 : align === "right" ? x0 - w : x0 - w/2, y: top, w, h});
+    drawStack(ctx, items, top, align, x0, t, shadow); ctx.restore(); return;
+  }
   let y = top;
   items.forEach((it, i) => {
     if (i) y += it.gap || 0;
@@ -750,6 +758,7 @@ function drawPhotoLayout(ctx, p, s, t){
   drawBase(ctx, t);
   if (img){
     drawCover(ctx, img, 0, 0, W, H, s.fx, s.fy, s.zoom, bwOf(p, s));
+    if (s.dim){ ctx.fillStyle = hexA(t.fade, clamp(+s.dim, 0, 1)); ctx.fillRect(0, 0, W, H); }
     const f = s.fade ?? 1, fh = clamp(s.fadeH ?? .64, .2, .8);
     const fromTop = s.textPos === "top";
     const g = fromTop ? ctx.createLinearGradient(0, H*fh, 0, 0) : ctx.createLinearGradient(0, H*(1-fh), 0, H);
@@ -817,7 +826,10 @@ function drawHalf(ctx, p, s, t, which){
   ctx.save(); ctx.beginPath(); ctx.rect(0, y0, W, hh); ctx.clip();
   if (img){
     drawCover(ctx, img, 0, y0, W, hh, which === 1 ? s.fx : s.fx2, which === 1 ? s.fy : s.fy2, which === 1 ? s.zoom : s.zoom2, bwOf(p, s));
-    const f = s.fade ?? 1, fh = clamp(s.fadeH ?? .64, .2, .8);
+    // the bottom still has its own fade, fade height and darken (fade2 / fadeH2 / dim2); unset, it follows the top
+    const dm = which === 1 ? s.dim : s.dim2;
+    if (dm){ ctx.fillStyle = hexA(t.fade, clamp(+dm, 0, 1)); ctx.fillRect(0, y0, W, hh); }
+    const f = (which === 2 ? s.fade2 : null) ?? s.fade ?? 1, fh = clamp((which === 2 ? s.fadeH2 : null) ?? s.fadeH ?? .64, .2, .8);
     const g = ctx.createLinearGradient(0, y0 + hh*(1-fh), 0, y0 + hh); g.addColorStop(0, hexA(t.fade, 0)); g.addColorStop(.45, hexA(t.fade, Math.min(1, .55*f))); g.addColorStop(1, hexA(t.fade, Math.min(1, .86*f)));
     ctx.fillStyle = g; ctx.fillRect(0, y0, W, hh);
     if (which === 1) drawTopShade(ctx, s, t);
@@ -832,6 +844,7 @@ function drawHalf(ctx, p, s, t, which){
   const total = stackHeight(ctx, items);
   const bottom = which === 1 ? hh - 44 : H - SAFE_B;
   const top = img ? bottom - total : y0 + (hh - total)/2 + (which === 1 ? 36 : -20);
+  if (TXT) TXT.key = which === 1 ? "text" : "text2";
   drawStack(ctx, items, top, "center", W/2, t, !!img);
   ctx.restore();
 }
@@ -874,8 +887,8 @@ function khPush(ctx, s, key, box){
   if (preview) HIT[key] = {x: cx + dx - box.w*k/2, y: cy + dy - box.h*k/2, w: box.w*k, h: box.h*k};
 }
 function placeSection(p, s){
-  return `<section class="grp"><h3>Logo &amp; label</h3>
-    <p class="help">Drag the logo or the label on the slide to move it. Sizes are per slide.</p>
+  return `<section class="grp"><h3>Move &amp; resize</h3>
+    <p class="help">Drag the logo, the label or any text block on the slide to move it. Drag anywhere else to move the photo.</p>
     ${slider("Logo size", "logoK", s.logoK || 1, .5, 2, .01)}
     ${slider("Label size", "labelK", s.labelK || 1, .5, 2, .01)}
     <div class="slide-actions">
@@ -885,6 +898,7 @@ function placeSection(p, s){
   </section>`;
 }
 function drawSlide(ctx, p, s, i, n){
+  TXT = null; if (ctx.canvas && ctx.canvas.id === "preview") HIT = {};
   H = postH(p); IS_REEL = p.format === "reel";
   // a reel cover is a single image: no layouts, labels, arrows or counters
   if (IS_REEL){ s = Object.assign({}, s, {layout:"photo", isCover:true, coverArrow:false, hideLabel:!s.reelLabel, arrow:false}); i = 0; n = 1; }
@@ -900,6 +914,7 @@ function drawSlide(ctx, p, s, i, n){
   t.fade = s.fadeColor || t.base;
   if (s.boxColor){ t.hi = s.boxColor; t.box = s.boxColor; } else t.box = t.accent;
   if (p.format === "quote"){ drawQuoteCard(ctx, p, s, t); ctx.restore(); return; }
+  TXT = {s, key: "text"};
   ({split:drawSplitLayout, step:drawStepLayout, cta:drawCtaLayout}[s.layout] || drawPhotoLayout)(ctx, p, s, t);
   shadowOn(ctx, false);
   khPush(ctx, s, "label", labelBox(ctx, p, s, t));
@@ -1363,7 +1378,7 @@ function seg(key, opts, val){
   return `<div class="seg" data-seg="${key}">${opts.map(([v, l]) => `<button type="button" data-v="${esc(v)}" class="${String(val) === String(v) ? "on" : ""}">${l}</button>`).join("")}</div>`;
 }
 // readouts: letter spacing in px; fade as a share of its range (100% = solid base); everything else as a percentage
-function fmtSlider(key, v){ return key === "track" ? `${v > 0 ? "+" : ""}${v}px` : key === "fade" ? `${Math.round(v / 2 * 100)}%` : `${Math.round(v * 100)}%`; }
+function fmtSlider(key, v){ return key === "track" ? `${v > 0 ? "+" : ""}${v}px` : key === "fade" || key === "fade2" ? `${Math.round(v / 2 * 100)}%` : `${Math.round(v * 100)}%`; }
 function slider(label, key, val, min, max, step){
   return `<label class="sl">${label}<input type="range" data-k="${key}" data-num="1" min="${min}" max="${max}" step="${step}" value="${val}"><output>${fmtSlider(key, +val)}</output></label>`;
 }
@@ -1425,8 +1440,13 @@ function inspSlide(){
   parts.push(`<section class="grp"><h3>${L === "split" ? "Photos" : "Photo"}</h3>
     ${L === "split" ? picker(p, s, "img", "Top still") + picker(p, s, "img2", "Bottom still") : picker(p, s, "img", L === "step" ? "Background photo (faded)" : L === "cta" ? "Background photo (darkened)" : "Photo")}
     ${anyPhoto ? `<div><span class="help">Black &amp; white</span> ${seg("bw", [["auto", "Day default"], ["on", "On"], ["off", "Off"]], s.bw === true ? "on" : s.bw === false ? "off" : "auto")}</div>
+    ${L === "split" ? `<span class="help"><b>Top still</b></span>` : ""}
     ${slider("Fade", "fade", s.fade ?? 1, 0, 2, .01)}
-    ${L === "photo" || L === "split" ? slider("Fade height", "fadeH", s.fadeH ?? .64, .2, .8, .01) : ""}
+    ${L === "photo" || L === "split" ? slider("Fade height", "fadeH", s.fadeH ?? .64, .2, .8, .01) + slider("Darken photo", "dim", s.dim || 0, 0, .9, .01) : ""}
+    ${L === "split" ? `<span class="help"><b>Bottom still</b></span>
+    ${slider("Fade", "fade2", s.fade2 ?? s.fade ?? 1, 0, 2, .01)}
+    ${slider("Fade height", "fadeH2", s.fadeH2 ?? s.fadeH ?? .64, .2, .8, .01)}
+    ${slider("Darken photo", "dim2", s.dim2 || 0, 0, .9, .01)}` : ""}
     <div class="swatches"><span class="help">Fade colour</span>
       ${BRAND.map(b => `<button type="button" class="sw${(s.fadeColor || themeOf(p).base).toUpperCase() === b.c ? " on" : ""}" style="--c:${b.c}" data-act="set-color" data-key="fadeColor" data-c="${b.c}" aria-label="${b.n}" title="${b.n}"></button>`).join("")}
       <input type="color" data-k="fadeColor" value="${esc(s.fadeColor || themeOf(p).base)}" aria-label="Custom fade colour">
@@ -2001,7 +2021,7 @@ function wire(){
   const hitAt = (e, cv) => {
     const p = cur(); if (!p) return null; const r = cv.getBoundingClientRect();
     const x = (e.clientX - r.left) / r.width * W, y = (e.clientY - r.top) / r.height * postH(p);
-    for (const key of ["logo", "label"]){ const b = HIT[key]; if (b && x >= b.x - 12 && x <= b.x + b.w + 12 && y >= b.y - 12 && y <= b.y + b.h + 12) return key; }
+    for (const key of ["logo", "label", "text", "text2"]){ const b = HIT[key]; if (b && x >= b.x - 12 && x <= b.x + b.w + 12 && y >= b.y - 12 && y <= b.y + b.h + 12) return key; }
     return null;
   };
   stage.addEventListener("pointerdown", e => {
@@ -2112,7 +2132,7 @@ function wire(){
     if (act === "gallery"){ openGallery(a.dataset.slot); return; }
     if (act === "arrow-color"){ s.arrowColor = a.dataset.c === "#FFFFFF" ? null : a.dataset.c; renderInspector(); scheduleRender(true); touch(p.id); return; }
     if (act === "place-reset"){ PLACE_KEYS.forEach(k => { delete s[k]; }); renderInspector(); scheduleRender(true); touch(p.id); return; }
-    if (act === "place-all"){ p.slides.forEach(x => { if (x !== s) PLACE_KEYS.forEach(k => { x[k] = s[k] ?? null; }); }); renderStage(); touch(p.id); toast("Logo and label placement copied to every slide."); return; }
+    if (act === "place-all"){ p.slides.forEach(x => { if (x !== s) PLACE_KEYS.forEach(k => { x[k] = s[k] ?? null; }); }); renderStage(); touch(p.id); toast("Logo, label and text positions copied to every slide."); return; }
     if (act === "label-all"){ const hide = !p.slides.every(x => x.hideLabel); p.slides.forEach(x => { x.hideLabel = hide; }); renderStage(); renderInspector(); touch(p.id); toast(hide ? "Pillar label hidden on every slide." : "Pillar label shown on every slide."); return; }
     if (act === "arrow-all"){ p.slides.forEach(x => { x.arrowColor = s.arrowColor; }); renderInspector(); scheduleRender(true); touch(p.id); toast("Arrow colour applied to every slide."); return; }
     if (act === "use-bg" || act === "clear-bg"){
