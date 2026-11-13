@@ -1022,8 +1022,8 @@ function inspQuote(p, s){
 
 /* ---------- KMP quote card ----------
    Navy frame, white card. The guest photo fills the top of the card and dips into the white panel in a
-   smooth blob near the right, with a small blue circle and arrow inside the dip. Big quote mark, the
-   quote, a short rule, then name and title. Logo, LISTEN ON icons and handle sit under the card. */
+   smooth blob on the left, with a small blue circle holding the quote mark inside the dip. Then the
+   quote, a short rule, name and title. Logo, LISTEN ON icons and handle sit under the card. */
 const KMP_Q = {bg:"#0A0D24", accent:"#4CA4C6", ink:"#0A0D24", sub:"#5B6178"};
 // three colourways of the same card
 const KMP_QTPLS = {
@@ -1065,7 +1065,7 @@ function drawQuoteKmp(ctx, p, s, t){
   else { ctx.fillStyle = T.empty; ctx.fillRect(x0, y0, x1 - x0, pb - y0 + R);
     ctx.fillStyle = hexA("#FFFFFF", .6); ctx.font = "600 30px Montserrat, system-ui, sans-serif"; ctx.textAlign = "center"; ctx.fillText("Add a photo of the guest", W/2, (y0 + pb)/2); ctx.textAlign = "left"; }
   // white panel whose top edge dips around the blob, with rounded shoulders
-  const cx = x1 - 170, dx = Math.sqrt((R + fs) ** 2 - fs ** 2);
+  const cx = x0 + 150, dx = Math.sqrt((R + fs) ** 2 - fs ** 2);
   ctx.beginPath(); ctx.moveTo(x0, pb); ctx.lineTo(cx - dx, pb);
   ctx.arc(cx - dx, pb + fs, fs, -Math.PI/2, Math.atan2(-fs, dx));
   ctx.arc(cx, pb, R, Math.atan2(fs, -dx), Math.atan2(fs, dx), true);
@@ -1073,19 +1073,22 @@ function drawQuoteKmp(ctx, p, s, t){
   ctx.lineTo(x1, pb); ctx.lineTo(x1, y1); ctx.lineTo(x0, y1); ctx.closePath();
   ctx.fillStyle = T.panel; ctx.fill();
   ctx.restore();
-  // the small circle and arrow sitting in the dip
-  if (s.showArrow !== false){
+  // the small circle in the dip, holding the quote mark
+  const markInCircle = s.showArrow !== false;
+  if (markInCircle){
     const ay = pb + 12, ar = 50;
     ctx.fillStyle = accent; ctx.beginPath(); ctx.arc(cx, ay, ar, 0, Math.PI*2); ctx.fill();
-    ctx.strokeStyle = inkFor(accent) === "#FFFFFF" ? "#FFFFFF" : KMP_Q.bg; ctx.lineWidth = 5; ctx.lineCap = "round"; ctx.lineJoin = "round";
-    ctx.beginPath(); ctx.moveTo(cx - 17, ay); ctx.lineTo(cx + 17, ay); ctx.moveTo(cx + 3, ay - 14); ctx.lineTo(cx + 17, ay); ctx.lineTo(cx + 3, ay + 14); ctx.stroke();
+    ctx.fillStyle = inkFor(accent) === "#FFFFFF" ? "#FFFFFF" : KMP_Q.bg; ctx.font = `400 128px "DM Serif Display", Georgia, serif`;
+    ctx.textAlign = "center"; ctx.fillText("“", cx + 2, ay + 76); ctx.textAlign = "left";
   }
   // words: quote mark, quote (shrinks to fit), rule, name and title
   const left = s.align !== "center", tx = left ? x0 + 70 : W/2, maxW = x1 - x0 - 140;
-  const markTop = pb + 54, textTop = markTop + 104, nameH = (s.chip && s.chip.name ? 44 : 0) + (s.chip && s.chip.title ? 38 : 0);
+  const markTop = pb + 54, textTop = markInCircle ? pb + 112 : markTop + 104, nameH = (s.chip && s.chip.name ? 44 : 0) + (s.chip && s.chip.title ? 38 : 0);
   const room = y1 - 60 - textTop - (nameH ? 48 + 5 + 34 + nameH : 0);
-  ctx.fillStyle = accent; ctx.font = `400 230px "DM Serif Display", Georgia, serif`; ctx.textAlign = left ? "left" : "center";
-  ctx.fillText("“", left ? tx - 8 : tx, markTop + 172); ctx.textAlign = "left";
+  if (!markInCircle){ // no circle: the quote mark sits above the words instead
+    ctx.fillStyle = accent; ctx.font = `400 230px "DM Serif Display", Georgia, serif`; ctx.textAlign = left ? "left" : "center";
+    ctx.fillText("“", left ? tx - 8 : tx, markTop + 172); ctx.textAlign = "left";
+  }
   const q = (s.headline || "").trim().replace(/^["“]|["”]$/g, "");
   let y = textTop;
   if (q){
@@ -1132,7 +1135,7 @@ function inspQuoteKmp(p, s){
       <p class="help">Drag the photo on the card to frame the guest's face.</p>
     </section>
     <section class="grp"><h3>Details</h3>
-      <label class="toggle"><input type="checkbox" data-k="showArrow" ${s.showArrow !== false ? "checked" : ""}> Circle with arrow in the photo dip</label>
+      <label class="toggle"><input type="checkbox" data-k="showArrow" ${s.showArrow !== false ? "checked" : ""}> Quote mark in the circle (off: above the words)</label>
       <label class="toggle"><input type="checkbox" data-k="showLogo" ${s.showLogo !== false ? "checked" : ""}> Logo under the card</label>
       <label class="toggle"><input type="checkbox" data-k="showListen" ${s.showListen !== false ? "checked" : ""}> LISTEN ON icons</label>
     </section>
