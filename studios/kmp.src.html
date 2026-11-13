@@ -143,7 +143,7 @@ input[type=color]{width:34px;height:30px;border:1px solid var(--line-2);border-r
 .thumb canvas{width:86px;height:auto;border-radius:4px;display:block;box-shadow:0 0 0 1px var(--line)}
 .thumb[aria-current="true"] canvas{box-shadow:0 0 0 2px var(--brand)}
 .thumb[aria-current="true"]{color:var(--fg)}
-.add-slide{flex:0 0 auto;width:86px;aspect-ratio:1080/1350;border:1px dashed var(--line-2);border-radius:4px;display:flex;flex-direction:column;
+.add-slide{flex:0 0 auto;width:86px;aspect-ratio:1080/1440;border:1px dashed var(--line-2);border-radius:4px;display:flex;flex-direction:column;
   align-items:center;justify-content:center;gap:6px;color:var(--muted);font-size:11.5px;font-weight:600;background:transparent;padding:6px;text-align:center}
 .add-slide select{font-size:11px;padding:4px;border-radius:6px}
 .actions{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;align-items:center}
@@ -272,7 +272,7 @@ label.btn{cursor:pointer}
           <input type="date" id="newDate">
         </label>
         <label class="f full">Format
-          <select id="newFormat"><option value="carousel">Carousel · 1080 × 1350</option><option value="reel">Reel cover · 1080 × 1440</option></select>
+          <select id="newFormat"><option value="carousel">Carousel · 1080 × 1440</option><option value="reel">Reel cover · 1080 × 1440</option></select>
         </label>
         <button class="btn primary full" type="submit">Create from template</button>
       </form>
@@ -302,10 +302,11 @@ label.btn{cursor:pointer}
 /* ---------- constants ---------- */
 const W = 1080, MARGIN = 100;
 const TOP_NUDGE = 14; // label, top badge and logo sit this much lower than the margin line
-let H = 1350;
-const postH = p => !p ? 1350 : p.format === "reel" ? 1440 : p.format === "quote" ? QUOTE_H : 1350;
+let H = 1440;
+// every format is 1080 × 1440 (3:4), the size the Instagram profile grid shows
+const postH = p => p && p.format === "quote" ? QUOTE_H : 1440;
 // Quote cards are one 1080 × 1440 image. Each studio sets its own design here; null = no quote cards yet.
-const QUOTE_STYLE = "kmp", QUOTE_H = 1350;
+const QUOTE_STYLE = "kmp", QUOTE_H = 1440;
 const single = p => !!p && (p.format === "reel" || p.format === "quote");
 const FORMAT_NAME = {carousel:"Carousel", reel:"Reel cover", quote:"Quote card"};
 let M = MARGIN, SAFE_B = 160, IS_REEL = false; // side margin and bottom safe zone, set per post in drawSlide
@@ -1046,7 +1047,7 @@ function drawQuoteKmp(ctx, p, s, t){
   ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
   const glow = ctx.createRadialGradient(W * .82, H * .1, 0, W * .82, H * .1, 760);
   glow.addColorStop(0, hexA(T.glow || accent, .22)); glow.addColorStop(1, hexA(T.glow || accent, 0)); ctx.fillStyle = glow; ctx.fillRect(0, 0, W, H);
-  const x0 = 54, x1 = W - 54, y0 = 54, y1 = H - 170, pb = y0 + 520, R = 76, fs = 34;
+  const x0 = 54, x1 = W - 54, y0 = 54, y1 = H - 170, pb = y0 + Math.round(H * .4), R = 76, fs = 34;
   ctx.save(); rr(ctx, x0, y0, x1 - x0, y1 - y0, 28); ctx.clip();
   // photo across the top of the card (and under the blob)
   const img = getImg(s.img);
@@ -1109,7 +1110,7 @@ function inspQuoteKmp(p, s){
   const T = kmpTpl(s), bg = s.fadeColor || T.frame, ac = s.boxColor || T.accent, ink = s.textColor || T.ink;
   const sw = (key, cur, act = "set-color") => BRAND.map(b => `<button type="button" class="sw${cur.toUpperCase() === b.c ? " on" : ""}" style="--c:${b.c}" data-act="${act}" data-key="${key}" data-c="${b.c}" aria-label="${b.n}" title="${b.n}"></button>`).join("");
   return `<section class="grp"><h3>Template</h3>
-      <div class="tpl-grid">${Object.entries(KMP_QTPLS).map(([k, X]) => `<button type="button" class="tpl${T === X ? " on" : ""}" data-act="qtpl" data-v="${k}"><canvas width="216" height="270" data-qtpl="${k}" style="aspect-ratio:4/5"></canvas><span>${X.name}</span></button>`).join("")}</div>
+      <div class="tpl-grid">${Object.entries(KMP_QTPLS).map(([k, X]) => `<button type="button" class="tpl${T === X ? " on" : ""}" data-act="qtpl" data-v="${k}"><canvas width="216" height="288" data-qtpl="${k}"></canvas><span>${X.name}</span></button>`).join("")}</div>
       <p class="help">Three colourways of the same card. Switching keeps your photo and words and resets the colours below.</p>
     </section>
     <section class="grp"><h3>Quote card</h3>
@@ -1153,7 +1154,7 @@ function drawGuides(ctx, p){
   const m = M, sb = SAFE_B;
   ctx.save(); ctx.lineWidth = 2; ctx.setLineDash([12, 10]);
   ctx.strokeStyle = "rgba(255,90,90,.9)"; ctx.strokeRect(m, m - 30, W - 2*m, H - sb - (m - 30));
-  const reel = p.format === "reel", gx = (W - H*3/4) / 2;
+  const reel = Math.abs(H / W - 4/3) < .01, gx = (W - H*3/4) / 2; // a 3:4 post needs no grid-crop guide
   if (!reel){ ctx.strokeStyle = "rgba(255,210,80,.85)"; ctx.strokeRect(gx, 0, W - 2*gx, H); }
   ctx.setLineDash([]); ctx.font = "700 22px Montserrat, system-ui, sans-serif";
   ctx.fillStyle = "rgba(255,90,90,.95)"; ctx.fillText("Safe area", m + 10, H - sb - 12);
@@ -1461,7 +1462,7 @@ function inspPost(){
     <input type="color" data-color="${key}" value="${key === "accent" ? t.accent : t.base}" aria-label="Custom colour"></div>`;
   return `
   <section class="grp"><h3>Format</h3>
-    ${p.format === "quote" ? "" : `<div class="seg">${[["carousel", "Carousel · 1080 × 1350"], ["reel", "Reel cover · 1080 × 1440"]].map(([v, l]) => `<button type="button" data-act="post-format" data-v="${v}" class="${(p.format || "carousel") === v ? "on" : ""}">${l}</button>`).join("")}</div>`}
+    ${p.format === "quote" ? "" : `<div class="seg">${[["carousel", "Carousel · 1080 × 1440"], ["reel", "Reel cover · 1080 × 1440"]].map(([v, l]) => `<button type="button" data-act="post-format" data-v="${v}" class="${(p.format || "carousel") === v ? "on" : ""}">${l}</button>`).join("")}</div>`}
     ${p.format === "quote" ? `<p class="help">Quote card · one static image at ${W} × ${postH(p)}: a photo, the guest's words and who said them. Edit it in the Slide tab.</p>` : ""}
     ${p.format === "reel" ? `<p class="help">One static image at 1080 × 1440, the size your profile grid shows. Pick a cover template in the Slide tab.</p>` : ""}
   </section>
