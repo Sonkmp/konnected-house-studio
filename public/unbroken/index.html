@@ -332,15 +332,18 @@ const BRAND = [
 
 const WATCH = "Watch the full conversation on ==Unbroken Podcast==";
 const DAYS = {
-  mon:{short:"Mon", name:"Monday",    pillar:"Marriage Truths",   accent:"#C9060D", hi:"#C9060D", base:"#0D0D0D", cta:WATCH},
-  tue:{short:"Tue", name:"Tuesday",   pillar:"Episode Trailer",   accent:"#C9060D", hi:"#C9060D", base:"#0D0D0D",
-       cta:"New episode ==tomorrow==, 10 AM on YouTube"},
-  wed:{short:"Wed", name:"Wednesday", pillar:"New Episode",       accent:"#FFFFFF", hi:"#FFFFFF", base:"#8E0409",
-       cta:"Watch the full episode on ==YouTube=="},
-  thu:{short:"Thu", name:"Thursday",  pillar:"Fathers & Family",  accent:"#C9060D", hi:"#C9060D", base:"#0D0D0D", bw:true, cta:WATCH},
-  fri:{short:"Fri", name:"Friday",    pillar:"Clip of the Day",   accent:"#C9060D", hi:"#C9060D", base:"#0D0D0D", cta:WATCH},
-  sat:{short:"Sat", name:"Saturday",  pillar:"The Cost of Love",  accent:"#C9060D", hi:"#C9060D", base:"#1C1919", cta:WATCH},
-  sun:{short:"Sun", name:"Sunday",    pillar:"Clip of the Day",   accent:"#C9060D", hi:"#C9060D", base:"#0D0D0D", cta:WATCH}
+  mon:{short:"Mon", name:"Monday",    pillar:"Hard Truths",         accent:"#C9060D", hi:"#C9060D", base:"#0D0D0D", cta:WATCH},
+  tue:{short:"Tue", name:"Tuesday",   pillar:"Before You Say I Do", accent:"#C9060D", hi:"#C9060D", base:"#0D0D0D",
+       cta:"Send this to a friend in the ==talking stage=="},
+  wed:{short:"Wed", name:"Wednesday", pillar:"Out Today",           accent:"#FFFFFF", hi:"#FFFFFF", base:"#8E0409",
+       cta:"New episode at ==10 AM== on YouTube"},
+  thu:{short:"Thu", name:"Thursday",  pillar:"Unbroken Stories",    accent:"#C9060D", hi:"#C9060D", base:"#0D0D0D", bw:true,
+       cta:"Send this to someone who needs to ==hear it== today"},
+  fri:{short:"Fri", name:"Friday",    pillar:"Money & Marriage",    accent:"#C9060D", hi:"#C9060D", base:"#0D0D0D",
+       cta:"Send this to the one you're ==building with=="},
+  sat:{short:"Sat", name:"Saturday",  pillar:"Married X Years",     accent:"#C9060D", hi:"#C9060D", base:"#1C1919",
+       cta:"Save this for your ==anniversary=="},
+  sun:{short:"Sun", name:"Sunday",    pillar:"The Big Question",    accent:"#C9060D", hi:"#C9060D", base:"#0D0D0D", cta:WATCH}
 };
 const DAY_ORDER = ["mon","tue","wed","thu","fri","sat","sun"];
 const LAYOUTS = {photo:"Photo + text", split:"Two stills", step:"Big number", cta:"Closing CTA"};
@@ -429,13 +432,17 @@ function templateFor(day, format){
   if (format === "reel") return [ubCover("Love", "Is ==not== enough")];
   const d = DAYS[day], Q = "Their words go here, ==15 words== or fewer.";
   const hook = () => ubCover("One word", "The hook in ==six words== or fewer");
-  const ask = () => S({tag:"Your turn", headline:"Ask the audience one ==question==?", sub:"Tell us in the comments."});
+  const ask = (q) => S({tag:"Your turn", headline:q || "Ask the audience one ==question==?", sub:"Tell us in the comments."});
+  const guest = (o) => S({headline:Q, chip:{name:"Guest name", title:"Who they are"}, ...o});
   const cta = S({layout:"cta", headline:d.cta, sub:""});
   switch(day){
-    case "mon": case "sat": return [hook(), ...[1,2,3,4,5].map(()=>S({headline:Q})), ask(), cta];
-    case "thu": return [hook(), ...["Where it started","What happened","The turning point","What changed","Today"].map(t=>S({tag:t, headline:Q})), S({tag:"The lesson", headline:Q}), ask(), cta];
-    case "wed": return [ubCover("Out now", "The full episode with ==guest name=="), ...[1,2,3,4,5,6].map(()=>S({headline:"What the guest covers here, as a ==teaser==."})), S({layout:"cta", headline:d.cta, sub:"New episodes every Wednesday, 10 AM"})];
-    case "tue": return [ubCover("Tomorrow", "New episode, ==10 AM== on YouTube"), cta];
+    case "mon": return [ubCover("Hard truths", "About ==marriage== nobody tells you"), ...[1,2,3,4,5,6].map(()=>guest()), ask("Which one hit ==hardest==?"), cta];
+    case "tue": return [ubCover("Before you", "Say ==yes== to his proposal"), ...[1,2,3,4,5,6,7].map(()=>guest()), cta];
+    case "wed": return [ubCover("Out today", "The full episode with ==guest name=="), ...[1,2,3,4,5,6].map(()=>S({headline:"What the guest covers here, as a ==teaser==."})), S({layout:"cta", headline:d.cta, sub:"New episodes every Wednesday"})];
+    case "thu": return [hook(), ...["Where it started","What happened","The lowest point","The turning point","Today"].map(t=>guest({tag:t})), guest({tag:"The lesson"}), cta];
+    case "fri": return [hook(), ...[1,2,3,4,5,6].map(()=>guest()), ask(), cta];
+    case "sat": return [ubCover("30 years", "What marriage ==taught them=="), ...[1,2,3,4,5,6,7].map(i=>guest({layout:"step", num:String(i), sub:"The lesson in plain words."})), cta];
+    case "sun": return [ubCover("The question", "Is love ==enough==?"), ...[1,2,3,4,5].map(()=>guest()), ask("What's ==your== answer?"), cta];
   }
   return [hook(), cta];
 }
