@@ -151,6 +151,9 @@ html[data-studio] .thumb canvas{border-radius:8px;box-shadow:0 0 0 1px var(--ui-
 html[data-studio] .thumb:hover canvas{box-shadow:0 0 0 1px var(--ui-line-2)}
 html[data-studio] .thumb[aria-current="true"] canvas{box-shadow:0 0 0 2px var(--ui-cyan), 0 10px 24px -10px var(--ui-glow)}
 html[data-studio] .thumb[aria-current="true"]{color:var(--ui-fg)}
+html[data-studio] .thumb[draggable="true"]{cursor:grab}
+html[data-studio] .thumb.lifting{opacity:.35}
+html[data-studio] .thumb.drop-at canvas{box-shadow:0 0 0 3px var(--ui-cyan), 0 0 0 7px var(--ui-glow)}
 html[data-studio] .add-slide{border-radius:10px;border-color:var(--ui-line-2)}
 
 /* ---------- right: inspector ---------- */

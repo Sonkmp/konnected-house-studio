@@ -143,6 +143,9 @@ input[type=color]{width:34px;height:30px;border:1px solid var(--line-2);border-r
 .thumb canvas{width:86px;height:auto;border-radius:4px;display:block;box-shadow:0 0 0 1px var(--line)}
 .thumb[aria-current="true"] canvas{box-shadow:0 0 0 2px var(--brand)}
 .thumb[aria-current="true"]{color:var(--fg)}
+.thumb.lifting{opacity:.35}
+.thumb.drop-at canvas{box-shadow:0 0 0 3px var(--brand)}
+.thumb[draggable="true"]{cursor:grab}
 .add-slide{flex:0 0 auto;width:86px;aspect-ratio:1080/1440;border:1px dashed var(--line-2);border-radius:4px;display:flex;flex-direction:column;
   align-items:center;justify-content:center;gap:6px;color:var(--muted);font-size:11.5px;font-weight:600;background:transparent;padding:6px;text-align:center}
 .add-slide select{font-size:11px;padding:4px;border-radius:6px}
@@ -394,9 +397,10 @@ function normPost(id, p){
   n.slides = (n.slides||[]).map(normSlide);
   return n;
 }
-const LOOK_KEYS = ["tpl","qTheme","footMode","reelLabel","hiScale","font","hlStyle","hlLast","weight","caps","textColor","scale","lh","track","boxColor","fade","fadeH","topFade","shadow","shadowColor","fadeColor","arrowColor","bw","align","textPos","numAlpha","numScale","badgeColor","badgePos","frame","frameColor"];
+const LOOK_KEYS = ["logoX","logoY","logoK","labelX","labelY","labelK","tpl","qTheme","footMode","reelLabel","hiScale","font","hlStyle","hlLast","weight","caps","textColor","scale","lh","track","boxColor","fade","fadeH","topFade","shadow","shadowColor","fadeColor","arrowColor","bw","align","textPos","numAlpha","numScale","badgeColor","badgePos","frame","frameColor"];
 // "Use this slide's look on every slide" copies the saved-look settings plus these
 const ALL_KEYS = [...LOOK_KEYS, "hideLabel", "chipPos", "bgImg", "bgDim", "topFade"];
+const PLACE_KEYS = ["logoX","logoY","logoK","labelX","labelY","labelK"];
 const presetKey = p => single(p) ? p.format : p.day;
 const presetLabel = key => key === "reel" ? "reel covers" : key === "quote" ? "quote cards" : `${DAYS[key] ? DAYS[key].name : key} carousels`;
 function lookOf(s){ const o = {}; LOOK_KEYS.forEach(k => { if (s[k] !== undefined) o[k] = s[k]; }); return clone(o); }
@@ -889,6 +893,43 @@ function drawSwipe(ctx, color){
   ctx.restore();
 }
 function logoShown(s, i, n, p){ return s.layout !== "cta" && (s.showLogo ?? (single(p) || i === 0 || i === n - 1)); }
+/* ---------- movable logo and label ----------
+   slide.logoX / logoY / logoK and labelX / labelY / labelK move (px) and resize (×) them around their
+   own centre. HIT keeps their boxes on the preview so they can be dragged. */
+let HIT = {};
+function logoBox(p, s){
+  if (!LOGO.naturalWidth) return null;
+  if (isUb(s) && s.layout === "photo"){ const lw = 295; return {x: 141, y: s.hideLabel ? 130 : 172, w: lw, h: lw * LOGO.naturalHeight / LOGO.naturalWidth}; }
+  const lh = 72, lw = lh * LOGO.naturalWidth / LOGO.naturalHeight;
+  return {x: W - M - lw, y: Math.max(48, M - 40) + TOP_NUDGE, w: lw, h: lh};
+}
+function labelBox(ctx, p, s, t){
+  const asBadge = s.badge && s.badgePos === "top-left" && s.layout !== "cta" && s.layout !== "split";
+  if (!asBadge && (s.hideLabel || s.layout === "cta")) return null;
+  const text = asBadge ? s.badge.toUpperCase() : t.pillar.toUpperCase(), size = asBadge ? 24 : 22, h = asBadge ? 56 : 52, pad = asBadge ? 24 : 22;
+  ctx.save(); ctx.font = `800 ${size}px Poppins, system-ui, sans-serif`; const w = spacedW(ctx, text, asBadge ? 3 : 3.5) + pad*2; ctx.restore();
+  return {x: M, y: Math.max(56, M - 30) + TOP_NUDGE, w, h};
+}
+function khPush(ctx, s, key, box){
+  ctx.save();
+  const preview = ctx.canvas && ctx.canvas.id === "preview";
+  if (!box){ if (preview) HIT[key] = null; return; }
+  const dx = +s[key + "X"] || 0, dy = +s[key + "Y"] || 0, k = clamp(+s[key + "K"] || 1, .4, 3);
+  const cx = box.x + box.w/2, cy = box.y + box.h/2;
+  ctx.translate(cx + dx, cy + dy); ctx.scale(k, k); ctx.translate(-cx, -cy);
+  if (preview) HIT[key] = {x: cx + dx - box.w*k/2, y: cy + dy - box.h*k/2, w: box.w*k, h: box.h*k};
+}
+function placeSection(p, s){
+  return `<section class="grp"><h3>Logo &amp; label</h3>
+    <p class="help">Drag the logo or the label on the slide to move it. Sizes are per slide.</p>
+    ${slider("Logo size", "logoK", s.logoK || 1, .5, 2, .01)}
+    ${slider("Label size", "labelK", s.labelK || 1, .5, 2, .01)}
+    <div class="slide-actions">
+      <button type="button" class="btn sm" data-act="place-reset">Reset position &amp; size</button>
+      ${p.slides.length > 1 ? `<button type="button" class="btn sm" data-act="place-all">Use on every slide</button>` : ""}
+    </div>
+  </section>`;
+}
 function drawSlide(ctx, p, s, i, n){
   H = postH(p); IS_REEL = p.format === "reel";
   // a reel cover is a single image: no layouts, labels, arrows or counters
@@ -908,11 +949,14 @@ function drawSlide(ctx, p, s, i, n){
   ({split:drawSplitLayout, step:drawStepLayout, cta:drawCtaLayout}[s.layout] || drawPhotoLayout)(ctx, p, s, t);
   shadowOn(ctx, false);
   if (s.frame) drawFrame(ctx, s, t);
+  khPush(ctx, s, "label", labelBox(ctx, p, s, t));
   const badgeTop = s.badge && s.badgePos === "top-left" && s.layout !== "cta" && s.layout !== "split";
   if (badgeTop){ const f = s.badgeColor || t.accent; drawPill(ctx, s.badge.toUpperCase(), M, Math.max(56, M - 30) + TOP_NUDGE, {fill:f, color:inkFor(f), size:24, h:56, padX:24, sp:3}); }
   else if (!s.hideLabel && s.layout !== "cta") drawPill(ctx, t.pillar.toUpperCase(), M, Math.max(56, M - 30) + TOP_NUDGE, {fill:t.accent, color:t.ink, size:22, h:52, padX:22});
+  ctx.restore();
   if (arrowShown(s, i, n, p)) drawSwipe(ctx, s.arrowColor);
   const logoOn = logoShown(s, i, n, p);
+  khPush(ctx, s, "logo", logoOn ? logoBox(p, s) : null);
   const ubLogo = isUb(s) && s.layout === "photo";
   if (logoOn && LOGO.complete && LOGO.naturalWidth){
     // Unbroken covers keep the Figma spot (top left, 295 px wide); everything else gets the small top-right logo
@@ -921,6 +965,7 @@ function drawSlide(ctx, p, s, i, n){
   }
   if (p.showCounter && !IS_REEL){ ctx.font = "700 24px Poppins, system-ui, sans-serif"; ctx.fillStyle = "rgba(255,255,255,.88)"; spaced(ctx, `${pad2(i+1)} / ${pad2(n)}`, W - M, (logoOn && !ubLogo ? 172 : 97) + TOP_NUDGE, 2, "right"); }
   else if (!logoOn && s.layout === "split" && MARK.complete && MARK.naturalWidth){ const h = 50, w = h * MARK.naturalWidth / MARK.naturalHeight; ctx.globalAlpha = .92; ctx.drawImage(MARK, W - M - w, 63 + TOP_NUDGE, w, h); ctx.globalAlpha = 1; }
+  ctx.restore();
   ctx.restore();
 }
 
@@ -1335,7 +1380,7 @@ function renderStage(){
     </div>
     ${reel ? "" : `<div class="col-handle" data-col="s" role="separator" aria-orientation="vertical" aria-label="Resize the slide strip" tabindex="0" title="Drag to resize · double-click to reset"></div>
     <div class="strip" id="strip" aria-label="Slides">
-      ${p.slides.map((s, i) => `<button class="thumb" data-i="${i}" aria-current="${i === state.slideIdx}" aria-label="Slide ${i+1}"><canvas width="300" height="${Math.round(300*postH(p)/W)}" style="aspect-ratio:${W}/${postH(p)}"></canvas><span>${pad2(i+1)}</span></button>`).join("")}
+      ${p.slides.map((s, i) => `<button class="thumb" draggable="true" title="Drag to reorder" data-i="${i}" aria-current="${i === state.slideIdx}" aria-label="Slide ${i+1}"><canvas width="300" height="${Math.round(300*postH(p)/W)}" style="aspect-ratio:${W}/${postH(p)}"></canvas><span>${pad2(i+1)}</span></button>`).join("")}
       <div class="add-slide"><span>Add slide</span>
         <select id="addLayout" aria-label="Layout for new slide">${Object.entries(LAYOUTS).map(([k,v])=>`<option value="${k}">${v}</option>`).join("")}</select>
         <button class="btn sm" id="addSlideBtn">+ Add</button>
@@ -1524,6 +1569,7 @@ function inspSlide(){
         ${BRAND.map(b => `<button type="button" class="sw${(s.frameColor || UB_RED).toUpperCase() === b.c ? " on" : ""}" style="--c:${b.c}" data-act="set-color" data-key="frameColor" data-c="${b.c === UB_RED ? "" : b.c}" aria-label="${b.n}" title="${b.n}"></button>`).join("")}
         <input type="color" data-k="frameColor" value="${esc(s.frameColor || UB_RED)}" aria-label="Custom frame colour"></div>` : ""}
     </section>`);
+    parts.push(placeSection(p, s));
     return parts.join("");
   }
   parts.push(`<section class="grp"><h3>Slide</h3>
@@ -1549,6 +1595,7 @@ function inspSlide(){
       <button type="button" class="btn sm danger" data-act="del-slide">${state.confirm === "slide" ? "Click again to delete" : "Delete slide"}</button>
     </div>
   </section>`);
+  parts.push(placeSection(p, s));
   return parts.join("");
 }
 function inspPost(){
@@ -1937,8 +1984,19 @@ function wire(){
 
   /* drag to reposition the photo */
   let drag = null;
+  const hitAt = (e, cv) => {
+    const p = cur(); if (!p) return null; const r = cv.getBoundingClientRect();
+    const x = (e.clientX - r.left) / r.width * W, y = (e.clientY - r.top) / r.height * postH(p);
+    for (const key of ["logo", "label"]){ const b = HIT[key]; if (b && x >= b.x - 12 && x <= b.x + b.w + 12 && y >= b.y - 12 && y <= b.y + b.h + 12) return key; }
+    return null;
+  };
   stage.addEventListener("pointerdown", e => {
     if (e.target.id !== "preview") return;
+    const el = hitAt(e, e.target), s0 = curSlide();
+    if (el && s0){
+      drag = {el, x: e.clientX, y: e.clientY, sc: W / e.target.getBoundingClientRect().width, ox: +s0[el + "X"] || 0, oy: +s0[el + "Y"] || 0};
+      e.target.setPointerCapture(e.pointerId); e.target.classList.add("dragging"); return;
+    }
     const s = curSlide(); if (!s || !hasPhoto(s)) return;
     const r = e.target.getBoundingClientRect();
     const which = s.layout === "split" && (e.clientY - r.top) / r.height > .5 ? "2" : "";
@@ -1947,7 +2005,13 @@ function wire(){
     e.target.setPointerCapture(e.pointerId); e.target.classList.add("dragging");
   });
   stage.addEventListener("pointermove", e => {
-    if (!drag) return; const s = curSlide(); if (!s) return;
+    if (!drag){ if (e.target.id === "preview") e.target.style.cursor = hitAt(e, e.target) ? "move" : ""; return; }
+    const s = curSlide(); if (!s) return;
+    if (drag.el){
+      s[drag.el + "X"] = Math.round(drag.ox + (e.clientX - drag.x) * drag.sc);
+      s[drag.el + "Y"] = Math.round(drag.oy + (e.clientY - drag.y) * drag.sc);
+      scheduleRender(false); return;
+    }
     const k = 1.6 / drag.z;
     s["fx" + drag.which] = clamp(drag.fx - (e.clientX - drag.x) / drag.w * k, 0, 1);
     s["fy" + drag.which] = clamp(drag.fy - (e.clientY - drag.y) / drag.h * k * (s.layout === "split" ? 2 : 1), 0, 1);
@@ -1959,6 +2023,28 @@ function wire(){
     const p = cur(); if (p){ scheduleRender(true); touch(p.id); if (state.tab === "slide") renderInspector(); }
   };
   stage.addEventListener("pointerup", end); stage.addEventListener("pointercancel", end);
+
+  /* drag a thumbnail to reorder the slides (Move left / right in the Slide tab does the same by click) */
+  let dragFrom = null;
+  const clearDnd = () => stage.querySelectorAll(".thumb.lifting, .thumb.drop-at").forEach(x => x.classList.remove("lifting", "drop-at"));
+  stage.addEventListener("dragstart", e => {
+    const th = e.target.closest && e.target.closest(".thumb"); if (!th) return;
+    dragFrom = +th.dataset.i; e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", String(dragFrom)); th.classList.add("lifting");
+  });
+  stage.addEventListener("dragover", e => {
+    const th = e.target.closest && e.target.closest(".thumb"); if (dragFrom === null || !th) return;
+    e.preventDefault(); e.dataTransfer.dropEffect = "move";
+    stage.querySelectorAll(".thumb.drop-at").forEach(x => { if (x !== th) x.classList.remove("drop-at"); }); th.classList.add("drop-at");
+  });
+  stage.addEventListener("drop", e => {
+    const th = e.target.closest && e.target.closest(".thumb"); if (dragFrom === null || !th) return;
+    e.preventDefault();
+    const to = +th.dataset.i, from = dragFrom, p = cur(); dragFrom = null; clearDnd();
+    if (!p || to === from) return;
+    const [moved] = p.slides.splice(from, 1); p.slides.splice(to, 0, moved);
+    state.slideIdx = to; renderStage(); renderInspector(); touch(p.id); toast(`Moved slide ${from + 1} to position ${to + 1}. Undo if you change your mind.`);
+  });
+  stage.addEventListener("dragend", () => { dragFrom = null; clearDnd(); });
 
   const insp = $("#insp");
   insp.addEventListener("input", e => {
@@ -2011,6 +2097,8 @@ function wire(){
     const act = a.dataset.act;
     if (act !== "del-slide" && act !== "del-post") state.confirm = null;
     if (act === "arrow-color"){ s.arrowColor = a.dataset.c === "#FFFFFF" ? null : a.dataset.c; renderInspector(); scheduleRender(true); touch(p.id); return; }
+    if (act === "place-reset"){ PLACE_KEYS.forEach(k => { delete s[k]; }); renderInspector(); scheduleRender(true); touch(p.id); return; }
+    if (act === "place-all"){ p.slides.forEach(x => { if (x !== s) PLACE_KEYS.forEach(k => { x[k] = s[k] ?? null; }); }); renderStage(); touch(p.id); toast("Logo and label placement copied to every slide."); return; }
     if (act === "label-all"){ const hide = !p.slides.every(x => x.hideLabel); p.slides.forEach(x => { x.hideLabel = hide; }); renderStage(); renderInspector(); touch(p.id); toast(hide ? "Pillar label hidden on every slide." : "Pillar label shown on every slide."); return; }
     if (act === "arrow-all"){ p.slides.forEach(x => { x.arrowColor = s.arrowColor; }); renderInspector(); scheduleRender(true); touch(p.id); toast("Arrow colour applied to every slide."); return; }
     if (act === "use-bg" || act === "clear-bg"){
