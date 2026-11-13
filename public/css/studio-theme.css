@@ -262,14 +262,12 @@ html[data-studio="unbroken"] body{
 }
 html[data-studio="unbroken"] .tabs{margin:0;padding:0 8px;border:0;border-bottom:1px solid var(--ui-line);border-radius:0;background:transparent;gap:0}
 html[data-studio="unbroken"] .tabs button{border-radius:0;padding:15px 6px 13px;font:700 13px var(--ui);letter-spacing:.08em;text-transform:uppercase;border-bottom:2px solid transparent}
-html[data-studio="unbroken"] .tabs button::before{display:none}
 html[data-studio="unbroken"] .tabs button:hover{background:transparent}
 html[data-studio="unbroken"] .tabs button[aria-selected="true"]{background:transparent;box-shadow:none;color:var(--ui-cyan);border-bottom-color:var(--ui-cyan)}
 html[data-studio="unbroken"] body.kh-cmt-open .tabs button[aria-selected="true"]:not(#tabComments){border-bottom-color:transparent}
 html[data-studio="unbroken"] #tabComments .n{background:var(--ui-cyan);color:#fff}
 html[data-studio="unbroken"] .posts-head .kh-fmt{background:transparent;border:0;padding:0;gap:6px}
-html[data-studio="unbroken"] .posts-head .kh-fmt button{flex-direction:row;padding:8px 10px;border-radius:12px;background:var(--ui-raise);border:1px solid var(--ui-line)}
-html[data-studio="unbroken"] .posts-head .kh-fmt .ic{display:none}
+html[data-studio="unbroken"] .posts-head .kh-fmt button{flex:1 1 0;min-width:0;padding:9px 2px 8px;border-radius:12px;background:var(--ui-raise);border:1px solid var(--ui-line)}
 html[data-studio="unbroken"] .posts-head .kh-fmt button.on{border-color:transparent}
 html[data-studio="unbroken"] .kh-fmt button.on .n{background:rgba(255,255,255,.95);color:#8A0509}
 html[data-studio="unbroken"] .seg button.on{background:color-mix(in srgb,var(--ui-accent) 16%,transparent);color:#fff;box-shadow:inset 0 0 0 1.5px var(--ui-accent)}
@@ -277,14 +275,10 @@ html[data-studio="unbroken"] .post-item[aria-current="true"]{background:color-mi
 html[data-studio="unbroken"] #preview{box-shadow:0 30px 80px -30px rgba(201,6,13,.45), 0 0 0 1px rgba(255,255,255,.06)}
 html[data-studio="unbroken"] .kh-search:focus-within{box-shadow:0 0 0 3px rgba(227,37,43,.2)}
 html[data-studio="unbroken"] .toggle input[type=checkbox]:checked{background:var(--ui-accent)}
-html[data-studio="unbroken"] #tabSlide::before, html[data-studio="unbroken"] #tabPost::before, html[data-studio="unbroken"] #tabComments::before{display:none}
-html[data-studio="unbroken"] .posts-head .kh-fmt button{flex:1 1 0;min-width:0;padding:8px 4px;font-size:12px}
 html[data-studio] .post-list{overflow-x:hidden}
-html[data-studio="unbroken"] .posts-head .kh-fmt button{padding:8px 2px;font-size:11.5px;gap:0}
 html[data-studio="unbroken"] .posts-head .kh-fmt .l{gap:4px}
 html[data-studio] .kh-fmt .n{min-width:15px;padding:1px 4px}
 html[data-studio] .posts{overflow-x:hidden}
-html[data-studio="unbroken"] #fmtSeg .ic{display:none}
 html[data-studio] .chip-st[data-s="reel"]{display:none}
 /* laptop widths: title on its own row, fields share the next; the keyboard hint steps aside */
 @media (max-width:1400px){
@@ -298,3 +292,10 @@ html[data-studio] .chip-st[data-s="reel"]{display:none}
   html[data-studio] .title-input{font-size:18px!important}
   html[data-studio] .stage{padding:14px 16px;gap:10px}
 }
+html[data-studio] .posts-head .kh-fmt button{font-size:11.5px;letter-spacing:-.01em}
+@media (max-width:1400px){
+  html[data-studio] .posts-head .kh-fmt button{font-size:11px;letter-spacing:-.015em}
+  html[data-studio="unbroken"] .posts-head .kh-fmt{gap:4px}
+  html[data-studio] .kh-fmt .l{gap:3px}
+}
+html[data-studio] .posts-head #fmtSeg [data-fmt="carousel"]{flex-grow:1.3}
