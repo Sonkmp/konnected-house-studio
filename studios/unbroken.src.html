@@ -385,6 +385,7 @@ const state = {
   posts: new Map(), presets: {}, currentId: null, slideIdx: 0, tab: "slide",
   mode: "loading", db: null, assets: null, downloads: null,
   dirty: new Set(), saving: new Set(), readOnly: false, saveError: false, stale: false,
+  uploading: new Map(),   // post id -> photos still uploading; the saved copy never replaces such a post
   confirm: null
 };
 const cur = () => state.posts.get(state.currentId) || null;
@@ -1767,6 +1768,12 @@ function touch(pid, full, noHist){
   state.dirty.add(pid); renderSave();
   clearTimeout(timers[pid]); timers[pid] = setTimeout(() => flush(pid), full ? 50 : 800);
 }
+// What a post looks like for "is this the same as the saved copy?": key order and the
+// thumbnail (derived from the slides) don't count. synced keeps that form of the copy last
+// saved or loaded, so edits this tab hasn't saved yet are never swapped for the saved copy.
+function stableStr(v){ return JSON.stringify(v, (k, x) => x && typeof x === "object" && !Array.isArray(x) ? Object.keys(x).sort().reduce((a, key) => (a[key] = x[key], a), {}) : x); }
+function syncKey(p){ const o = cleanPost(p); delete o.thumb; return stableStr(o); }
+const synced = new Map();
 function cleanPost(p){
   const o = JSON.parse(JSON.stringify(p, (k, v) => (k === "src" && typeof v === "string" && v.startsWith("blob:")) ? undefined : v));
   delete o.id;
@@ -1780,9 +1787,10 @@ async function flush(pid){
   if (state.saving.has(pid)){ timers[pid] = setTimeout(() => flush(pid), 400); return; }
   const p = state.posts.get(pid); if (!p){ state.dirty.delete(pid); renderSave(); return; }
   state.dirty.delete(pid); state.saving.add(pid); renderSave();
+  const key = syncKey(p);
   try {
     await state.db.collection("posts").doc(pid).set(cleanPost(p));
-    state.saveError = false;
+    state.saveError = false; synced.set(pid, key);
   } catch(e){
     if (e && e.code === "invalid_argument") state.readOnly = true;
     else state.saveError = true;
@@ -1936,13 +1944,21 @@ async function addFiles(files, slot){
     refs.forEach(r => delete r._file); return;
   }
   toast(`Uploading ${refs.length} photo${refs.length > 1 ? "s" : ""}…`);
-  let ok = 0;
-  for (const r of refs){
-    try { const res = await state.assets.upload(r._file); r.id = res.id; ok++; }
-    catch(e){ toast(e && e.code === "too_large" ? "One photo is over 20 MB. Export a smaller copy and try again." : "A photo didn't upload. It stays in this tab only."); }
-    delete r._file;
+  const pid = p.id; let ok = 0;
+  state.uploading.set(pid, (state.uploading.get(pid) || 0) + 1);
+  touch(pid);   // the new photo, framing and layout are edits too
+  try {
+    for (const r of refs){
+      try { const res = await state.assets.upload(r._file); r.id = res.id; ok++; }
+      catch(e){ toast(e && e.code === "too_large" ? "One photo is over 20 MB. Export a smaller copy and try again." : "A photo didn't upload. It stays in this tab only."); }
+      delete r._file;
+    }
+  } finally {
+    const left = (state.uploading.get(pid) || 1) - 1;
+    if (left) state.uploading.set(pid, left); else state.uploading.delete(pid);
   }
-  if (ok) { toast(`${ok} photo${ok > 1 ? "s" : ""} saved.`); touch(p.id, true); }
+  if (ok) toast(`${ok} photo${ok > 1 ? "s" : ""} saved.`);
+  touch(pid, true);
 }
 
 /* ---------- export ---------- */
@@ -2313,23 +2329,27 @@ function applySnapshot(snap){
   const seen = new Set(); let currentChanged = false;
   snap.docs.forEach(d => {
     seen.add(d.id);
-    if (state.dirty.has(d.id) || state.saving.has(d.id)) return;
+    if (state.dirty.has(d.id) || state.saving.has(d.id) || state.uploading.has(d.id)) return;
     const incoming = normPost(d.id, clone(d.data() || {}));
     const prev = state.posts.get(d.id);
-    if (!prev) { state.posts.set(d.id, incoming); histOf(d.id).last = snapStr(incoming); if (d.id === state.currentId) currentChanged = true; return; }
+    if (!prev) { state.posts.set(d.id, incoming); synced.set(d.id, syncKey(incoming)); histOf(d.id).last = snapStr(incoming); if (d.id === state.currentId) currentChanged = true; return; }
     if (prev){
+      // edits here that aren't saved yet (a drag still in progress, say) win: save them instead
+      const local = syncKey(prev);
+      if (!state.readOnly && synced.has(d.id) && local !== synced.get(d.id)){ touch(d.id, false, true); return; }
+      const inc = syncKey(incoming); synced.set(d.id, inc);
+      if (local === inc){ if (incoming.thumb) prev.thumb = incoming.thumb; return; }
       // keep in-tab photo previews for refs that now carry an id
       const srcs = new Map(); const keep = r => { if (r && r.id && r.src) srcs.set(r.id, r.src); };
       prev.photos.forEach(keep); prev.slides.forEach(s => { keep(s.img); keep(s.img2); });
       const re = r => { if (r && r.id && srcs.has(r.id)) r.src = srcs.get(r.id); };
       incoming.photos.forEach(re); incoming.slides.forEach(s => { re(s.img); re(s.img2); });
-      if (JSON.stringify(cleanPost(prev)) === JSON.stringify(cleanPost(incoming))) return;
     }
     state.posts.set(d.id, incoming);
     histOf(d.id).last = snapStr(incoming);
     if (d.id === state.currentId) currentChanged = true;
   });
-  for (const id of [...state.posts.keys()]) if (!seen.has(id) && !state.dirty.has(id) && !state.saving.has(id)) { state.posts.delete(id); if (id === state.currentId) currentChanged = true; }
+  for (const id of [...state.posts.keys()]) if (!seen.has(id) && !state.dirty.has(id) && !state.saving.has(id) && !state.uploading.has(id)) { state.posts.delete(id); if (id === state.currentId) currentChanged = true; }
   if (!state.currentId || !state.posts.has(state.currentId)) { state.currentId = pickDefaultPost(); state.slideIdx = 0; currentChanged = true; }
   const p = cur(); if (p) state.slideIdx = clamp(state.slideIdx, 0, Math.max(0, p.slides.length - 1));
   renderList();
