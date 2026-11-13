@@ -314,9 +314,9 @@ label.btn{cursor:pointer}
 const W = 1080, MARGIN = 100;
 const TOP_NUDGE = 14; // label, top badge and logo sit this much lower than the margin line
 let H = 1350;
-const postH = p => p && (p.format === "reel" || p.format === "quote") ? 1440 : 1350;
+const postH = p => !p ? 1350 : p.format === "reel" ? 1440 : p.format === "quote" ? QUOTE_H : 1350;
 // Quote cards are one 1080 × 1440 image. Each studio sets its own design here; null = no quote cards yet.
-const QUOTE_STYLE = "bubble";
+const QUOTE_STYLE = "bubble", QUOTE_H = 1440;
 const single = p => !!p && (p.format === "reel" || p.format === "quote");
 const FORMAT_NAME = {carousel:"Carousel", reel:"Reel cover", quote:"Quote card"};
 let M = MARGIN, SAFE_B = 160, IS_REEL = false; // side margin and bottom safe zone, set per post in drawSlide
@@ -481,7 +481,7 @@ const MARK = new Image(); MARK.onload = () => scheduleRender(true); MARK.src = L
 
 /* ---------- fonts ---------- */
 let fontsOk = false;
-const FONT_SPECS = ["italic 700 40px \"Averia Serif Libre\"","500 40px Poppins","600 40px Poppins","700 40px Poppins","500 40px Montserrat","600 40px Montserrat","700 40px Montserrat","800 40px Montserrat","900 40px Montserrat","italic 400 40px \"Instrument Serif\"","400 40px Anton","400 40px \"Bebas Neue\"","italic 400 40px \"DM Serif Display\"","italic 800 40px Fraunces","400 40px \"Archivo Black\"","400 40px \"League Gothic\"","700 40px Oswald","800 40px Poppins","900 40px Poppins"];
+const FONT_SPECS = ["italic 700 40px \"Averia Serif Libre\"","500 40px Poppins","600 40px Poppins","700 40px Poppins","500 40px Montserrat","600 40px Montserrat","700 40px Montserrat","800 40px Montserrat","900 40px Montserrat","italic 400 40px \"Instrument Serif\"","400 40px Anton","400 40px \"Bebas Neue\"","italic 400 40px \"DM Serif Display\"","400 40px \"DM Serif Display\"","italic 800 40px Fraunces","400 40px \"Archivo Black\"","400 40px \"League Gothic\"","700 40px Oswald","800 40px Poppins","900 40px Poppins"];
 const fontsReady = Promise.all(FONT_SPECS.map(f => document.fonts.load(f).catch(()=>null)))
   .then(() => document.fonts.ready).catch(()=>null).then(() => { fontsOk = true; scheduleRender(true); });
 
@@ -958,6 +958,7 @@ function quoteFrame(ctx, x0, y0, x1, y1, r, notch){
   ctx.arcTo(x0, y1, x0, y0, r); ctx.arcTo(x0, y0, x1, y0, r); ctx.closePath();
 }
 function drawQuoteCard(ctx, p, s, t){
+  if (QUOTE_STYLE === "kmp") return drawQuoteKmp(ctx, p, s, t);
   const pad = 56, foot = s.fadeColor || QUOTE_RED, footTop = H - 196, sc = s.scale || 1, T = quoteTpl(s);
   if (!s.boxColor){ t.hi = s.fadeColor || T.hi || foot; t.box = t.hi; } // highlights follow the footer, not the day colour (which can be white)
   // coloured base, white bubble over it, and the bubble's tail
@@ -1009,6 +1010,7 @@ function drawQuoteCard(ctx, p, s, t){
   }
 }
 function inspQuote(p, s){
+  if (QUOTE_STYLE === "kmp") return inspQuoteKmp(p, s);
   const fc = s.fadeColor || QUOTE_RED, pc = s.badgeColor || fc;
   const sw = (key, cur) => BRAND.map(b => `<button type="button" class="sw${cur.toUpperCase() === b.c ? " on" : ""}" style="--c:${b.c}" data-act="set-color" data-key="${key}" data-c="${b.c}" aria-label="${b.n}" title="${b.n}"></button>`).join("");
   return `<section class="grp"><h3>Template</h3>
@@ -1017,7 +1019,7 @@ function inspQuote(p, s){
     </section>
     <section class="grp"><h3>Quote card</h3>
       <p class="help">Write the guest's exact words. Quote marks are added for you. Select words and click Colour to highlight them.</p>
-      ${field("The quote", "headline", s.headline, {area:true, count:true, fmt:true})}
+      ${field("The quote", "headline", s.headline, {area:true, rows:4, fmt:true})}
       ${field("Who said it", "sub", s.sub, {ph:"- Guest name or @handle"})}
       ${field("Episode pill", "badge", s.badge, {ph:"e.g. EP 12 or S01/E13"})}
       ${field("Footer line", "tag", s.tag, {ph:"e.g. EP 12 · Before you say I do with ..."})}
@@ -1045,6 +1047,131 @@ function inspQuote(p, s){
       ${slider("Line spacing", "lh", s.lh || 1, .75, 1.6, .01)}
       ${slider("Letter spacing", "track", s.track || 0, -4, 14, .5)}
       ${seg("align", [["center", "Centred"], ["left", "Left"]], s.align)}
+      <button type="button" class="btn sm ghost" data-act="save-preset">Save this look for new quote cards</button>
+      ${state.presets.quote ? `<button type="button" class="link" data-act="clear-preset" style="align-self:flex-start">Forget the saved look for quote cards</button>` : ""}
+    </section>`;
+}
+
+/* ---------- KMP quote card ----------
+   Navy frame, white card. The guest photo fills the top of the card and dips into the white panel in a
+   smooth blob near the right, with a small blue circle and arrow inside the dip. Big quote mark, the
+   quote, a short rule, then name and title. Logo, LISTEN ON icons and handle sit under the card. */
+const KMP_Q = {bg:"#0A0D24", accent:"#4CA4C6", ink:"#0A0D24", sub:"#5B6178"};
+const QUOTE_START_KMP = {layout:"photo", hideLabel:true, isCover:false, coverArrow:false, arrow:false, font:"sans", weight:"700",
+  headline:"If you can be successful in Ghana, you can be successful *anywhere*.", chip:{name:"Guest name", title:"What they do"},
+  handle:"@konnectedminds", align:"left", shadow:0, scale:1, lh:1.05, fy:.3};
+function kmpIcons(ctx, x, cy, ink){
+  // YouTube, Spotify, Apple Podcasts, as simple white marks; returns the width used
+  ctx.save(); ctx.fillStyle = "#FFFFFF"; ctx.strokeStyle = ink; ctx.lineCap = "round";
+  rr(ctx, x, cy - 15, 42, 30, 9); ctx.fill();
+  ctx.fillStyle = ink; ctx.beginPath(); ctx.moveTo(x + 17, cy - 8); ctx.lineTo(x + 28, cy); ctx.lineTo(x + 17, cy + 8); ctx.closePath(); ctx.fill();
+  let cx = x + 42 + 16 + 17;
+  ctx.fillStyle = "#FFFFFF"; ctx.beginPath(); ctx.arc(cx, cy, 17, 0, Math.PI*2); ctx.fill();
+  ctx.lineWidth = 2.6; [[-6, 9, .55], [0, 7, .45], [6, 5, .35]].forEach(([dy, hw, bend]) => { ctx.beginPath(); ctx.moveTo(cx - hw, cy + dy - 1); ctx.quadraticCurveTo(cx, cy + dy - 1 - hw*bend, cx + hw, cy + dy + 1); ctx.stroke(); });
+  cx += 17 + 16 + 17;
+  ctx.fillStyle = "#FFFFFF"; ctx.beginPath(); ctx.arc(cx, cy, 17, 0, Math.PI*2); ctx.fill();
+  ctx.lineWidth = 2.4; ctx.beginPath(); ctx.arc(cx, cy - 2, 9, Math.PI*0.8, Math.PI*2.2); ctx.stroke();
+  ctx.fillStyle = ink; ctx.beginPath(); ctx.arc(cx, cy - 2, 3.4, 0, Math.PI*2); ctx.fill(); rr(ctx, cx - 2.2, cy + 2, 4.4, 9, 2.2); ctx.fill();
+  ctx.restore();
+  return cx + 17 - x;
+}
+function drawQuoteKmp(ctx, p, s, t){
+  const bg = s.fadeColor || KMP_Q.bg, accent = s.boxColor || KMP_Q.accent, sc = s.scale || 1;
+  t.hi = accent; t.box = accent;
+  // frame: navy with a soft blue glow
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+  const glow = ctx.createRadialGradient(W * .82, H * .1, 0, W * .82, H * .1, 760);
+  glow.addColorStop(0, hexA(accent, .22)); glow.addColorStop(1, hexA(accent, 0)); ctx.fillStyle = glow; ctx.fillRect(0, 0, W, H);
+  const x0 = 54, x1 = W - 54, y0 = 54, y1 = H - 170, pb = y0 + 520, R = 76, fs = 34;
+  ctx.save(); rr(ctx, x0, y0, x1 - x0, y1 - y0, 28); ctx.clip();
+  // photo across the top of the card (and under the blob)
+  const img = getImg(s.img);
+  if (img) drawCover(ctx, img, x0, y0, x1 - x0, pb - y0 + R, s.fx, s.fy, s.zoom, bwOf(p, s));
+  else { ctx.fillStyle = "#1B1F45"; ctx.fillRect(x0, y0, x1 - x0, pb - y0 + R);
+    ctx.fillStyle = "#8189AF"; ctx.font = "600 30px Poppins, system-ui, sans-serif"; ctx.textAlign = "center"; ctx.fillText("Add a photo of the guest", W/2, (y0 + pb)/2); ctx.textAlign = "left"; }
+  // white panel whose top edge dips around the blob, with rounded shoulders
+  const cx = x1 - 170, dx = Math.sqrt((R + fs) ** 2 - fs ** 2);
+  ctx.beginPath(); ctx.moveTo(x0, pb); ctx.lineTo(cx - dx, pb);
+  ctx.arc(cx - dx, pb + fs, fs, -Math.PI/2, Math.atan2(-fs, dx));
+  ctx.arc(cx, pb, R, Math.atan2(fs, -dx), Math.atan2(fs, dx), true);
+  ctx.arc(cx + dx, pb + fs, fs, Math.atan2(-fs, -dx), -Math.PI/2);
+  ctx.lineTo(x1, pb); ctx.lineTo(x1, y1); ctx.lineTo(x0, y1); ctx.closePath();
+  ctx.fillStyle = "#FFFFFF"; ctx.fill();
+  ctx.restore();
+  // the small circle and arrow sitting in the dip
+  if (s.showArrow !== false){
+    const ay = pb + 12, ar = 50;
+    ctx.fillStyle = accent; ctx.beginPath(); ctx.arc(cx, ay, ar, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = inkFor(accent) === "#FFFFFF" ? "#FFFFFF" : KMP_Q.bg; ctx.lineWidth = 5; ctx.lineCap = "round"; ctx.lineJoin = "round";
+    ctx.beginPath(); ctx.moveTo(cx - 17, ay); ctx.lineTo(cx + 17, ay); ctx.moveTo(cx + 3, ay - 14); ctx.lineTo(cx + 17, ay); ctx.lineTo(cx + 3, ay + 14); ctx.stroke();
+  }
+  // words: quote mark, quote (shrinks to fit), rule, name and title
+  const left = s.align !== "center", tx = left ? x0 + 70 : W/2, maxW = x1 - x0 - 140;
+  const markTop = pb + 54, textTop = markTop + 104, nameH = (s.chip && s.chip.name ? 44 : 0) + (s.chip && s.chip.title ? 38 : 0);
+  const room = y1 - 60 - textTop - (nameH ? 48 + 5 + 34 + nameH : 0);
+  ctx.fillStyle = accent; ctx.font = `400 230px "DM Serif Display", Georgia, serif`; ctx.textAlign = left ? "left" : "center";
+  ctx.fillText("“", left ? tx - 8 : tx, markTop + 172); ctx.textAlign = "left";
+  const q = (s.headline || "").trim().replace(/^["“]|["”]$/g, "");
+  let y = textTop;
+  if (q){
+    let size = 60 * sc, it, h;
+    do { it = headItem(s, q, size, 700, maxW, 0); it.color = s.textColor || KMP_Q.ink; h = stackHeight(ctx, [it]); size -= 2; } while (h > room && size > 30);
+    drawStack(ctx, [it], y, left ? "left" : "center", tx, t, false); y += h;
+  }
+  if (nameH){
+    y += 48; ctx.fillStyle = accent; ctx.fillRect(left ? tx : tx - 140, y, 280, 5); y += 5 + 34;
+    ctx.textAlign = left ? "left" : "center";
+    if (s.chip.name){ ctx.fillStyle = s.textColor || KMP_Q.ink; ctx.font = "800 34px Poppins, system-ui, sans-serif"; ctx.fillText(s.chip.name, tx, y + 30); y += 44; }
+    if (s.chip.title){ ctx.fillStyle = KMP_Q.sub; ctx.font = "italic 500 28px Poppins, system-ui, sans-serif"; ctx.fillText(s.chip.title, tx, y + 26); }
+    ctx.textAlign = "left";
+  }
+  // under the card: logo | LISTEN ON + icons on the left, handle on the right
+  const fy = (y1 + H) / 2;
+  let fx = x0 + 6;
+  if (s.showLogo !== false && LOGO.complete && LOGO.naturalWidth){
+    const lh = 62, lw = lh * LOGO.naturalWidth / LOGO.naturalHeight; ctx.drawImage(LOGO, fx, fy - lh/2, lw, lh); fx += lw + 30;
+  }
+  if (s.showListen !== false){
+    ctx.fillStyle = hexA("#FFFFFF", .35); ctx.fillRect(fx, fy - 30, 2, 60); fx += 30;
+    ctx.fillStyle = hexA("#FFFFFF", .8); ctx.font = "700 17px Poppins, system-ui, sans-serif"; spaced(ctx, "LISTEN ON", fx, fy - 12, 2.5, "left");
+    kmpIcons(ctx, fx, fy + 18, bg);
+  }
+  if (s.handle){ ctx.fillStyle = hexA("#FFFFFF", .85); ctx.font = "600 26px Poppins, system-ui, sans-serif"; ctx.textAlign = "right"; ctx.fillText(s.handle, x1 - 6, fy + 9); ctx.textAlign = "left"; }
+}
+function inspQuoteKmp(p, s){
+  const bg = s.fadeColor || KMP_Q.bg, ac = s.boxColor || KMP_Q.accent, ink = s.textColor || KMP_Q.ink;
+  const sw = (key, cur, act = "set-color") => BRAND.map(b => `<button type="button" class="sw${cur.toUpperCase() === b.c ? " on" : ""}" style="--c:${b.c}" data-act="${act}" data-key="${key}" data-c="${b.c}" aria-label="${b.n}" title="${b.n}"></button>`).join("");
+  return `<section class="grp"><h3>Quote card</h3>
+      <p class="help">Write the guest's exact words. Long quotes shrink to fit. Select words and click Colour to highlight them.</p>
+      ${field("The quote", "headline", s.headline, {area:true, rows:4, fmt:true})}
+      <div class="row2">${field("Name", "chip.name", s.chip.name, {ph:"Guest name"})}${field("Title", "chip.title", s.chip.title, {ph:"What they do"})}</div>
+      ${field("Handle", "handle", s.handle, {ph:"@konnectedminds"})}
+    </section>
+    <section class="grp"><h3>Photo</h3>
+      ${picker(p, s, "img", "Guest photo")}
+      ${hasPhoto(s) ? `<div><span class="help">Black &amp; white</span> ${seg("bw", [["auto", "Day default"], ["on", "On"], ["off", "Off"]], s.bw === true ? "on" : s.bw === false ? "off" : "auto")}</div>` : ""}
+      <p class="help">Drag the photo on the card to frame the guest's face.</p>
+    </section>
+    <section class="grp"><h3>Details</h3>
+      <label class="toggle"><input type="checkbox" data-k="showArrow" ${s.showArrow !== false ? "checked" : ""}> Circle with arrow in the photo dip</label>
+      <label class="toggle"><input type="checkbox" data-k="showLogo" ${s.showLogo !== false ? "checked" : ""}> Logo under the card</label>
+      <label class="toggle"><input type="checkbox" data-k="showListen" ${s.showListen !== false ? "checked" : ""}> LISTEN ON icons</label>
+    </section>
+    <section class="grp"><h3>Colours</h3>
+      <div class="swatches"><span class="help">Frame</span>${sw("fadeColor", bg)}<input type="color" data-k="fadeColor" value="${esc(bg)}" aria-label="Custom frame colour">
+        ${s.fadeColor ? `<button type="button" class="link" data-act="set-color" data-key="fadeColor" data-c="">Reset</button>` : ""}</div>
+      <div class="swatches"><span class="help">Accent (circle, quote mark, rule, highlights)</span>${sw("boxColor", ac, "box-color")}<input type="color" data-k="boxColor" value="${esc(ac)}" aria-label="Custom accent colour">
+        ${s.boxColor ? `<button type="button" class="link" data-act="box-color" data-c="">Reset</button>` : ""}</div>
+      <div class="swatches"><span class="help">Quote text</span>${sw("textColor", ink)}<input type="color" data-k="textColor" value="${esc(ink)}" aria-label="Custom text colour">
+        ${s.textColor ? `<button type="button" class="link" data-act="set-color" data-key="textColor" data-c="">Reset</button>` : ""}</div>
+    </section>
+    <section class="grp"><h3>Type</h3>
+      <div><span class="help">Quote font</span> ${seg("font", Object.entries(FAMS).map(([k, F]) => [k, F.name]), s.font || "sans")}</div>
+      <div><span class="help">Weight</span> ${seg("weight", WEIGHTS, s.weight || "")}</div>
+      ${slider("Text size", "scale", s.scale || 1, .7, 1.5, .01)}
+      ${slider("Line spacing", "lh", s.lh || 1, .75, 1.6, .01)}
+      ${slider("Letter spacing", "track", s.track || 0, -4, 14, .5)}
+      ${seg("align", [["left", "Left"], ["center", "Centred"]], s.align === "center" ? "center" : "left")}
       <button type="button" class="btn sm ghost" data-act="save-preset">Save this look for new quote cards</button>
       ${state.presets.quote ? `<button type="button" class="link" data-act="clear-preset" style="align-self:flex-start">Forget the saved look for quote cards</button>` : ""}
     </section>`;
@@ -1149,7 +1276,7 @@ function renderStage(){
       <div class="stagebox"><div class="canvas-wrap" style="--ar:${W/postH(p)}"><canvas id="preview" width="${W}" height="${postH(p)}" style="aspect-ratio:${W}/${postH(p)}" role="img" aria-label="Slide preview"></canvas></div></div>
       ${reel ? "<span></span>" : `<button class="nav" id="nextSlide" aria-label="Next slide"${state.slideIdx >= n-1 ? " disabled" : ""}>›</button>`}
     </div>
-    <div class="under"><div class="viewer-foot"><span>${reel ? `${FORMAT_NAME[p.format]} · 1080 × 1440` : `Slide ${state.slideIdx+1} of ${n}`}</span><span>${hasPhoto(curSlide()||{}) ? "Drag the photo to move it" : "No photo on this slide"}</span></div>
+    <div class="under"><div class="viewer-foot"><span>${reel ? `${FORMAT_NAME[p.format]} · ${W} × ${postH(p)}` : `Slide ${state.slideIdx+1} of ${n}`}</span><span>${hasPhoto(curSlide()||{}) ? "Drag the photo to move it" : "No photo on this slide"}</span></div>
     ${photoBar(curSlide())}</div>
     </div>
     ${reel ? "" : `<div class="col-handle" data-col="s" role="separator" aria-orientation="vertical" aria-label="Resize the slide strip" tabindex="0" title="Drag to resize · double-click to reset"></div>
@@ -1378,8 +1505,8 @@ function inspPost(){
     <input type="color" data-color="${key}" value="${key === "accent" ? t.accent : t.base}" aria-label="Custom colour"></div>`;
   return `
   <section class="grp"><h3>Format</h3>
-    <div class="seg">${[["carousel", "Carousel · 1080 × 1350"], ["reel", "Reel cover · 1080 × 1440"]].map(([v, l]) => `<button type="button" data-act="post-format" data-v="${v}" class="${(p.format || "carousel") === v ? "on" : ""}">${l}</button>`).join("")}</div>
-    ${p.format === "quote" ? `<p class="help">One static image at 1080 × 1440: a photo, the guest's words and the episode. Edit it in the Slide tab.</p>` : ""}
+    ${p.format === "quote" ? "" : `<div class="seg">${[["carousel", "Carousel · 1080 × 1350"], ["reel", "Reel cover · 1080 × 1440"]].map(([v, l]) => `<button type="button" data-act="post-format" data-v="${v}" class="${(p.format || "carousel") === v ? "on" : ""}">${l}</button>`).join("")}</div>`}
+    ${p.format === "quote" ? `<p class="help">Quote card · one static image at ${W} × ${postH(p)}: a photo, the guest's words and who said them. Edit it in the Slide tab.</p>` : ""}
     ${p.format === "reel" ? `<p class="help">One static image at 1080 × 1440, the size your profile grid shows. Pick a cover template in the Slide tab.</p>` : ""}
   </section>
   ${single(p) ? "" : `<section class="grp"><h3>Pillar label</h3>
