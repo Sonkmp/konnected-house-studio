@@ -461,7 +461,7 @@ const MARK = new Image(); MARK.onload = () => scheduleRender(true); MARK.src = L
 
 /* ---------- fonts ---------- */
 let fontsOk = false;
-const FONT_SPECS = ["500 40px Montserrat","600 40px Montserrat","700 40px Montserrat","800 40px Montserrat","900 40px Montserrat","italic 400 40px \"Instrument Serif\"","400 40px Anton","400 40px \"Bebas Neue\"","italic 400 40px \"DM Serif Display\"","400 40px \"DM Serif Display\"","italic 800 40px Fraunces","400 40px \"Archivo Black\"","400 40px \"League Gothic\"","700 40px Oswald","800 40px Poppins","900 40px Poppins"];
+const FONT_SPECS = ["500 40px Montserrat","400 40px Montserrat","400 40px Poppins","600 40px Montserrat","700 40px Montserrat","800 40px Montserrat","900 40px Montserrat","italic 400 40px \"Instrument Serif\"","400 40px Anton","400 40px \"Bebas Neue\"","italic 400 40px \"DM Serif Display\"","400 40px \"DM Serif Display\"","italic 800 40px Fraunces","400 40px \"Archivo Black\"","400 40px \"League Gothic\"","700 40px Oswald","800 40px Poppins","900 40px Poppins"];
 const fontsReady = Promise.all(FONT_SPECS.map(f => document.fonts.load(f).catch(()=>null)))
   .then(() => document.fonts.ready).catch(()=>null).then(() => { fontsOk = true; scheduleRender(true); });
 
@@ -866,6 +866,12 @@ const quoteTpl = s => QUOTE_TPLS[s.qTheme] || QUOTE_TPLS.light;
 const QUOTE_START = {layout:"photo", hideLabel:true, isCover:false, coverArrow:false, arrow:false, font:"round", weight:"700",
   headline:"Love is not a feeling. It is a *decision* you make every day.", sub:"- Guest name", badge:"EP 12",
   tag:"EP 12 · Episode title goes here", qTheme:"light", shadow:0, scale:1, lh:1, align:"center", fy:.35};
+// simple word wrap for plain text lines
+function wrapPlain(ctx, text, maxW){
+  const words = text.split(/\s+/), lines = []; let line = "";
+  words.forEach(w => { const t = line ? line + " " + w : w; if (line && ctx.measureText(t).width > maxW){ lines.push(line); line = w; } else line = t; });
+  if (line) lines.push(line); return lines;
+}
 function quoteFrame(ctx, x0, y0, x1, y1, r, notch){
   ctx.beginPath(); ctx.moveTo(x0 + r, y0);
   ctx.arcTo(x1, y0, x1, y1, r);
@@ -888,7 +894,7 @@ function drawQuoteCard(ctx, p, s, t){
   ctx.quadraticCurveTo(tx - 8, footTop + 4, tx + 20, footTop + 38);
   ctx.quadraticCurveTo(tx + 24, footTop + 14, tx + 40, footTop - 4); ctx.closePath(); ctx.fill();
   // episode pill, sized to its text; the photo frame steps around it
-  const x0 = pad, y0 = pad, x1 = W - pad, y1 = 812;
+  const x0 = pad, y0 = pad, x1 = W - pad, y1 = 690; // photo shorter, words get more room
   const pillTxt = (s.badge || "").trim().toUpperCase(), pillH = 84, pillPad = 38;
   ctx.font = "700 36px Poppins, system-ui, sans-serif";
   const pillW = pillTxt ? spacedW(ctx, pillTxt, 1.5) + pillPad * 2 : 0;
@@ -915,10 +921,16 @@ function drawQuoteCard(ctx, p, s, t){
   const left = s.align === "left", maxW = x1 - x0 - (left ? 20 : 40), items = [];
   const q = (s.headline || "").trim();
   if (q){ const it = headItem(s, /^["“'‘]/.test(q) ? q : `“${q}”`, 62 * sc, 700, maxW, 0); it.color = s.textColor || T.ink; items.push(it); }
-  if ((s.sub || "").trim()) items.push({k:"rich", text:s.sub.trim(), size:34 * sc, weight:500, maxW, lh:1.2, fam:s.font, color:T.sub, gap:22});
-  if (items.length){
-    const top = y1 + 54, room = footTop - 60 - top, total = stackHeight(ctx, items);
-    drawStack(ctx, items, total < room ? top + (room - total)/2 : top, left ? "left" : "center", left ? x0 + 20 : W/2, t, false);
+  // "who said it" in a light weight (drawn plainly: the quote fonts force a bold minimum)
+  const subTxt = (s.sub || "").trim().replace(/[*=]/g, ""), subSize = 34 * sc, subFont = `400 ${subSize}px Poppins, system-ui, sans-serif`;
+  ctx.font = subFont; const subLines = subTxt ? wrapPlain(ctx, subTxt, maxW) : [];
+  const quoteH = items.length ? stackHeight(ctx, items) : 0, subH = subLines.length ? (quoteH ? 22 : 0) + subLines.length * subSize * 1.25 : 0;
+  if (quoteH || subH){
+    const top = y1 + 54, room = footTop - 60 - top, total = quoteH + subH, ty = total < room ? top + (room - total)/2 : top, tx = left ? x0 + 20 : W/2;
+    if (quoteH) drawStack(ctx, items, ty, left ? "left" : "center", tx, t, false);
+    ctx.font = subFont; ctx.fillStyle = T.sub; ctx.textAlign = left ? "left" : "center";
+    subLines.forEach((ln, k) => ctx.fillText(ln, tx, ty + quoteH + (quoteH ? 22 : 0) + subSize * (.9 + k * 1.25)));
+    ctx.textAlign = "left";
   }
   // footer: the listen-on bar, or the episode line
   if ((s.footMode || "cta") === "cta"){ ubListenBar(ctx, footTop + 116, foot, pad); return; }
@@ -1089,8 +1101,8 @@ function drawQuoteKmp(ctx, p, s, t){
   if (nameH){
     y += 48; ctx.fillStyle = accent; ctx.fillRect(left ? tx : tx - 140, y, 280, 5); y += 5 + 34;
     ctx.textAlign = left ? "left" : "center";
-    if (s.chip.name){ ctx.fillStyle = s.textColor || T.ink; ctx.font = "800 34px Montserrat, system-ui, sans-serif"; ctx.fillText(s.chip.name, tx, y + 30); y += 44; }
-    if (s.chip.title){ ctx.fillStyle = T.sub; ctx.font = "italic 500 28px Montserrat, system-ui, sans-serif"; ctx.fillText(s.chip.title, tx, y + 26); }
+    if (s.chip.name){ ctx.fillStyle = s.textColor || T.ink; ctx.font = "400 34px Montserrat, system-ui, sans-serif"; ctx.fillText(s.chip.name, tx, y + 30); y += 44; }
+    if (s.chip.title){ ctx.fillStyle = T.sub; ctx.font = "italic 400 28px Montserrat, system-ui, sans-serif"; ctx.fillText(s.chip.title, tx, y + 26); }
     ctx.textAlign = "left";
   }
   // under the card: logo | LISTEN ON + icons on the left, handle on the right
