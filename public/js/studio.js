@@ -23,6 +23,15 @@ const assets = assetStore(studio, () => {
   refreshTimer = setTimeout(() => window.__khRefresh && window.__khRefresh(), 120);
 });
 
+// The photo gallery: every photo uploaded to this studio, newest first. Only the small
+// records are listed; the photos themselves load when the gallery shows them.
+let photos = [];
+onSnapshot(collection(db, "studios", studio, "assets"), snap => {
+  photos = snap.docs.map(d => ({ id: d.id, name: d.data().name || "", createdAt: d.data().createdAt || 0 }))
+    .sort((a, b) => b.createdAt - a.createdAt);
+  if (window.__khGalleryChanged) window.__khGalleryChanged();
+}, () => { /* the gallery falls back to the photos used in posts */ });
+
 const fmtKey = "kh.fmt." + studio;
 window.KH = {
   studio, role: s.role, email: s.email,
@@ -30,6 +39,7 @@ window.KH = {
   canCreate: fmt => can.create(s.role, fmt),
   assetSrc: id => assets.src(id),
   assetReady: id => assets.ready(id),
+  photos: () => photos,
   rememberFormat(f) {
     try { localStorage.setItem(fmtKey, f); } catch (e) { /* per-browser convenience only */ }
   },

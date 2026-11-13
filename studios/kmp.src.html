@@ -196,6 +196,22 @@ input[type=color]{width:34px;height:30px;border:1px solid var(--line-2);border-r
 .lib button{flex:0 0 auto;padding:0;border:1px solid var(--line-2);border-radius:6px;overflow:hidden;background:none;width:46px;height:46px}
 .lib button.on{border-color:var(--brand);box-shadow:0 0 0 1px var(--brand)}
 .lib img{width:100%;height:100%;object-fit:cover;display:block}
+.gal{width:min(980px, calc(100vw - 32px));max-height:min(780px, calc(100vh - 48px));padding:0;border:1px solid var(--line-2);border-radius:14px;background:var(--panel);color:var(--fg);box-shadow:0 30px 80px -20px rgba(0,0,0,.7)}
+.gal[open]{display:flex;flex-direction:column}
+.gal::backdrop{background:rgba(3,5,14,.72);backdrop-filter:blur(3px)}
+.gal-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:16px 18px;border-bottom:1px solid var(--line)}
+.gal-head h2{margin:0;font-size:17px;font-weight:700}
+.gal-head .help{margin:0}
+.gal-head .sp{flex:1}
+.gal-hint{margin:0;padding:10px 18px 0;color:var(--muted);font-size:13px}
+.gal-grid{display:grid;grid-template-columns:repeat(auto-fill, minmax(132px, 1fr));gap:10px;padding:14px 18px 18px;overflow-y:auto}
+.gal-grid button{position:relative;padding:0;border:1px solid var(--line-2);border-radius:10px;overflow:hidden;background:var(--field);aspect-ratio:3/4}
+.gal-grid button:hover{border-color:var(--brand)}
+.gal-grid button.on{border-color:var(--brand);box-shadow:0 0 0 2px var(--brand)}
+.gal-grid img{width:100%;height:100%;object-fit:cover;display:block;opacity:0;transition:opacity .2s}
+.gal-grid img.ld{opacity:1}
+.gal-tag{position:absolute;left:6px;bottom:6px;padding:2px 7px;border-radius:99px;background:rgba(0,0,0,.72);color:#fff;font-size:11px;font-weight:600}
+.gal-empty{padding:40px 18px;text-align:center;color:var(--muted)}
 .sl{display:grid;grid-template-columns:62px minmax(0,1fr) 42px;gap:8px;align-items:center;font-size:12px;color:var(--muted);font-weight:600}
 .sl output{font-variant-numeric:tabular-nums;text-align:right;color:var(--fg);font-size:11.5px}
 .swatches{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
@@ -296,6 +312,7 @@ label.btn{cursor:pointer}
   </main>
 </div>
 <div class="toast" id="toast" hidden></div>
+<dialog class="gal" id="gallery" aria-labelledby="galTitle"></dialog>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script>
@@ -1354,6 +1371,7 @@ function picker(p, s, slot, label){
     <label class="drop${src ? " has" : ""}" data-drop="${slot}">${src ? `<img src="${esc(src)}" alt="">` : `<span>No photo on this slide.<br>Drop one here or <u>browse</u></span>`}<input type="file" accept="image/*" multiple data-file="${slot}" hidden></label>
     <div class="pk-actions">
       <label class="btn sm">${src ? "Change photo" : "+ Add photo"}<input type="file" accept="image/*" data-file="${slot}" hidden></label>
+      <button type="button" class="btn sm" data-act="gallery" data-slot="${slot}">Gallery</button>
       ${src ? `<button type="button" class="btn sm danger" data-act="clear-img" data-slot="${slot}">Remove photo</button>` : ""}
     </div>
     ${lib ? `<span class="help">Or pick one already in this post:</span>${lib}` : ""}
@@ -1374,6 +1392,7 @@ function bgPicker(p, scope, ref, label, note){
     <label class="drop${src ? " has" : ""}" data-drop="${slot}">${src ? `<img src="${esc(src)}" alt="">` : `<span>${note}<br>Drop an image here or <u>browse</u></span>`}<input type="file" accept="image/*" data-file="${slot}" hidden></label>
     <div class="pk-actions">
       <label class="btn sm">${src ? "Change image" : "+ Add image"}<input type="file" accept="image/*" data-file="${slot}" hidden></label>
+      <button type="button" class="btn sm" data-act="gallery" data-slot="${slot}">Gallery</button>
       ${src ? `<button type="button" class="btn sm danger" data-act="clear-bg" data-scope="${scope}">Remove</button>` : ""}
     </div>
     ${lib ? `<span class="help">Or use one already in this post:</span>${lib}` : ""}
@@ -1544,6 +1563,7 @@ function inspPost(){
   </section>
   <section class="grp"><h3>Photos in this post</h3>
     <label class="drop" data-drop="lib"><span>Drop photos here or <u>browse</u>. They'll show up in every slide's photo picker.</span><input type="file" accept="image/*" multiple data-file="lib" hidden></label>
+    <button type="button" class="btn sm" data-act="gallery" data-slot="lib">Add from the gallery</button>
     ${p.photos.length ? `<div class="lib">${p.photos.map((r, i) => `<button type="button" data-act="lib-remove" data-i="${i}" aria-label="Remove photo ${i+1} from this post" title="Remove from post"><img src="${esc(srcOf(r))}" alt=""></button>`).join("")}</div><p class="help">Click a photo to take it out of this post's list.</p>` : ""}
   </section>
   <section class="grp"><h3>Caption</h3>
@@ -1711,6 +1731,81 @@ function onPostField(el){
 }
 function onPostLabel(el){ const p = cur(); if (!p) return; p.label = el.value; renderList(); scheduleRender(true); touch(p.id); }
 
+/* ---------- photo gallery ----------
+   Every photo uploaded in this studio, newest first: on the website that is the studio's whole photo
+   store (window.KH.photos); elsewhere it is every saved photo used in any post here. Picking one adds
+   it to the post's photos and puts it where the Gallery button was pressed (slot). */
+let galSlot = null, galObs = null;
+const refKey = r => (r && (r.id || r.src)) || "";
+function galleryPhotos(){
+  const seen = new Set(), out = [];
+  const add = r => { if (!r || !r.id || seen.has(r.id)) return; seen.add(r.id); out.push({id: r.id}); };
+  (window.KH && KH.photos ? KH.photos() : []).forEach(add);
+  [...state.posts.values()].sort((a, b) => (b.date || "").localeCompare(a.date || "")).forEach(p => (p.photos || []).forEach(add));
+  return out;
+}
+function galleryUrl(r){ return window.KH && KH.assetReady && r.id ? KH.assetReady(r.id) : Promise.resolve(srcOf(r) || ""); }
+function slotRef(p, slot){ const s = curSlide(); return slot === "lib" ? null : slot.startsWith("post:") ? p[slot.slice(5)] : s && s[slot]; }
+function placePhoto(p, slot, ref){
+  const s = curSlide();
+  if (slot.startsWith("post:")) p[slot.slice(5)] = ref;
+  else if (slot === "bgImg"){ if (s) s.bgImg = ref; }
+  else if (slot !== "lib" && s){
+    s[slot] = ref; s.textOnly = false;
+    if (slot === "img") { s.fx = .5; s.fy = .3; s.zoom = 1; } else { s.fx2 = .5; s.fy2 = .3; s.zoom2 = 1; }
+  }
+}
+function openGallery(slot){
+  const d = $("#gallery"); if (!d || !cur()) return;
+  galSlot = slot; renderGallery(); if (!d.open) d.showModal();
+}
+function renderGallery(){
+  const d = $("#gallery"), p = cur(); if (!d || !p || galSlot === null) return;
+  const list = galleryPhotos(), inPost = new Set(p.photos.map(refKey)), on = refKey(slotRef(p, galSlot));
+  const pickMany = galSlot === "lib";
+  const scroll = d.querySelector(".gal-grid")?.scrollTop || 0;
+  d.innerHTML = `<div class="gal-head">
+      <h2 id="galTitle">Photo gallery</h2><span class="help">${list.length} photo${list.length === 1 ? "" : "s"}</span><span class="sp"></span>
+      <label class="btn sm">Upload photos<input type="file" accept="image/*" multiple data-gal-file hidden></label>
+      <button type="button" class="btn sm primary" data-gal="close">Done</button>
+    </div>
+    <p class="gal-hint">${pickMany ? "Click photos to add them to this post, or click again to take them out." : "Click a photo to use it. Every photo uploaded in this studio is here, for carousels, reel covers and quote cards."}</p>
+    ${list.length ? `<div class="gal-grid">${list.map((r, i) => `<button type="button" data-gal-i="${i}" class="${(pickMany ? inPost.has(r.id) : on === r.id) ? "on" : ""}" aria-label="Photo ${i+1}${inPost.has(r.id) ? ", in this post" : ""}"><img alt="" data-gal-img="${i}">${inPost.has(r.id) ? `<span class="gal-tag">In this post</span>` : ""}</button>`).join("")}</div>`
+      : `<p class="gal-empty">No photos yet. Upload some and they'll be here for every post.</p>`}`;
+  const grid = d.querySelector(".gal-grid"); if (!grid) return;
+  grid.scrollTop = scroll;
+  // load photos as they scroll into view, so a big gallery doesn't fetch everything at once
+  if (galObs) galObs.disconnect();
+  const load = img => galleryUrl(list[+img.dataset.galImg]).then(u => { if (u){ img.src = u; img.onload = () => img.classList.add("ld"); } });
+  if ("IntersectionObserver" in window){
+    galObs = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting){ galObs.unobserve(e.target); load(e.target); } }), {root: grid, rootMargin: "300px"});
+    grid.querySelectorAll("img").forEach(img => galObs.observe(img));
+  } else grid.querySelectorAll("img").forEach(load);
+}
+function wireGallery(){
+  const d = $("#gallery"); if (!d) return;
+  window.__khGalleryChanged = () => { if (d.open) renderGallery(); };
+  d.addEventListener("close", () => { galSlot = null; if (galObs) galObs.disconnect(); });
+  d.addEventListener("click", e => {
+    if (e.target === d){ d.close(); return; }   // click on the backdrop
+    if (e.target.closest("[data-gal=close]")){ d.close(); return; }
+    const b = e.target.closest("[data-gal-i]"), p = cur(); if (!b || !p) return;
+    const r = galleryPhotos()[+b.dataset.galI]; if (!r) return;
+    let ref = p.photos.find(x => refKey(x) === r.id);
+    if (galSlot === "lib"){
+      if (ref) p.photos.splice(p.photos.indexOf(ref), 1); else p.photos.push({id: r.id});
+      renderGallery(); renderInspector(); touch(p.id); return;
+    }
+    if (!ref){ ref = {id: r.id}; p.photos.push(ref); }
+    placePhoto(p, galSlot, ref); d.close();
+    renderInspector(); renderStage(); touch(p.id);
+  });
+  d.addEventListener("change", e => {
+    const el = e.target; if (!el.matches("[data-gal-file]")) return;
+    const slot = galSlot; d.close(); addFiles(el.files, slot || "lib"); el.value = "";
+  });
+}
+
 async function addFiles(files, slot){
   const p = cur(); if (!p) return;
   const imgs = [...files].filter(f => /^image\//.test(f.type)); if (!imgs.length){ toast("Those files aren't images."); return; }
@@ -1851,7 +1946,7 @@ function wireCols(){
   window.addEventListener("resize", fitCols);
 }
 function wire(){
-  wireCols();
+  wireCols(); wireGallery();
   $("#newDay").innerHTML = dayOptions(DAY_ORDER[(new Date().getDay() + 6) % 7]);
   $("#newDate").value = todayISO();
   $("#newPostBtn").addEventListener("click", e => { const f = $("#newForm"); f.hidden = !f.hidden; e.currentTarget.setAttribute("aria-expanded", String(!f.hidden)); });
@@ -2009,6 +2104,7 @@ function wire(){
     const a = e.target.closest("[data-act]"); if (!a) return;
     const act = a.dataset.act;
     if (act !== "del-slide" && act !== "del-post") state.confirm = null;
+    if (act === "gallery"){ openGallery(a.dataset.slot); return; }
     if (act === "arrow-color"){ s.arrowColor = a.dataset.c === "#FFFFFF" ? null : a.dataset.c; renderInspector(); scheduleRender(true); touch(p.id); return; }
     if (act === "place-reset"){ PLACE_KEYS.forEach(k => { delete s[k]; }); renderInspector(); scheduleRender(true); touch(p.id); return; }
     if (act === "place-all"){ p.slides.forEach(x => { if (x !== s) PLACE_KEYS.forEach(k => { x[k] = s[k] ?? null; }); }); renderStage(); touch(p.id); toast("Logo and label placement copied to every slide."); return; }
