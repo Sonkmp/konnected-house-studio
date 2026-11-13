@@ -31,14 +31,16 @@ def port(key):
     start = src.index('<meta name="claude:viewport-fit-sides" content="cover">')
     src = src[start:]
     rep('<meta name="claude:viewport-fit-sides" content="cover">',
-        '<!doctype html>\n<html lang="en"><head>\n<meta charset="utf-8">\n'
+        f'<!doctype html>\n<html lang="en" data-studio="{key}"><head>\n<meta charset="utf-8">\n'
         '<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">\n'
         f'<title>{STUDIOS[key]["title"]} · Konnected House</title>\n'
         f'<meta name="kh-studio" content="{key}">\n'
         f'<link rel="icon" href="/brand/{key}-mark.png">\n'
         '<link rel="stylesheet" href="/css/studio-nav.css">\n'
         '<script src="/js/kh-boot.js"></script>')
-    rep('\n<div class="app">', '\n</head><body>\n<div class="app">')
+    # the interface theme loads after the studio's own styles; it never touches the canvas artwork
+    rep('\n<div class="app">', '\n<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">\n'
+        '<link rel="stylesheet" href="/css/studio-theme.css">\n</head><body>\n<div class="app">')
     rep('__LOGO_FULL__', f'/brand/{key}-logo-full.png', 2)
     rep('__LOGO_MARK__', f'/brand/{key}-mark.png')
     src = src.rstrip() + '\n<script type="module" src="/js/studio.js"></script>\n</body></html>\n'
@@ -47,7 +49,9 @@ def port(key):
     rep('    <div class="brand">',
         '    <a href="/" class="kh-homelink" title="Konnected House home" aria-label="Home"><img src="/brand/kh-mark.png" alt=""></a>\n    <div class="brand">')
     rep('<div class="save" id="saveState"',
-        '<nav class="kh-nav" id="khNav" aria-label="Studios"></nav>\n    <div class="save" id="saveState"')
+        '<nav class="kh-nav" id="khNav" aria-label="Studios"></nav>\n'
+        '    <label class="kh-search"><input type="search" id="khSearch" placeholder="Search posts, quotes, guests" aria-label="Search posts" autocomplete="off"><kbd>⌘K</kbd></label>\n'
+        '    <div class="save" id="saveState"')
     rep('<div class="save" id="saveState" data-s="busy" role="status"><i></i><span>Connecting…</span></div>',
         '<div class="save" id="saveState" data-s="busy" role="status"><i></i><span>Connecting…</span></div>\n    <div class="kh-user" id="khUser"></div>')
 
@@ -65,12 +69,14 @@ def port(key):
     rep('  confirm: null\n};', '  confirm: null, fmt: "carousel"\n};')
     rep('function renderList(){', 'function renderList(){ fmtCounts();')
     rep('return [...state.posts.values()].sort(',
-        'return [...state.posts.values()].filter(p => (p.format || "carousel") === state.fmt).sort(')
+        'return [...state.posts.values()].filter(p => (p.format || "carousel") === state.fmt && matchQ(p)).sort(')
     rep('const format = $("#newFormat").value;',
         'const format = state.fmt;\n'
         '    if (window.KH && !KH.canCreate(format)){ toast(`Your role can\'t start ${format === "reel" ? "reel covers" : "carousels"}.`); return; }')
     rep('$("#newPostBtn").addEventListener("click"',
         '$("#fmtSeg").addEventListener("click", e => { const b = e.target.closest("[data-fmt]"); if (b) setFmt(b.dataset.fmt); });\n'
+        '  $("#khSearch").addEventListener("input", e => { state.q = e.target.value; renderList(); });\n'
+        '  document.addEventListener("keydown", e => { if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k"){ e.preventDefault(); $("#khSearch").focus(); $("#khSearch").select(); } });\n'
         '  $("#newPostBtn").addEventListener("click"')
     rep('function renderAll(){ renderList();', '''function setFmt(f){
   if (f === state.fmt) return;
@@ -81,17 +87,23 @@ def port(key):
   if (state.currentId && !hist[state.currentId]) histInit(state.currentId);
   renderAll();
 }
+// Header search narrows the post list (title, date, pillar, caption, quote text, guest name).
+function matchQ(p){
+  const q = (state.q || "").trim().toLowerCase(); if (!q) return true;
+  const has = x => String(x || "").toLowerCase().includes(q);
+  return [p.title, p.date, fmtDate(p.date), themeOf(p).pillar, p.caption].some(has) || p.slides.some(s => [s.headline, s.sub, s.chip && s.chip.name].some(has));
+}
 // The toggle shows how many posts each format has.
 function fmtCounts(){
   const n = f => [...state.posts.values()].filter(p => (p.format || "carousel") === f).length;
-  document.querySelectorAll("#fmtSeg [data-fmt]").forEach(b => { b.innerHTML = `${b.dataset.label} <span class="n">${n(b.dataset.fmt)}</span>`; });
+  document.querySelectorAll("#fmtSeg [data-fmt]").forEach(b => { b.innerHTML = `<i class="ic" aria-hidden="true"></i><span class="l">${b.dataset.label} <span class="n">${n(b.dataset.fmt)}</span></span>`; });
 }
 // Role rules live in js/kh.js; the page only reflects them (Firestore rules enforce them).
 function syncAccess(){
   const p = cur();
   state.readOnly = !!(window.KH && p && !KH.canEdit(p));
   document.querySelectorAll("#fmtSeg [data-fmt]").forEach(b => { const on = b.dataset.fmt === state.fmt; b.classList.toggle("on", on); b.setAttribute("aria-selected", String(on)); });
-  const nb = $("#newPostBtn"); if (nb) nb.hidden = !!(window.KH && !KH.canCreate(state.fmt));
+  const nb = $("#newPostBtn"); if (nb){ nb.hidden = !!(window.KH && !KH.canCreate(state.fmt)); nb.textContent = "New " + ({carousel:"carousel", reel:"reel cover", quote:"quote card"}[state.fmt] || "post"); }
 }
 function renderAll(){ syncAccess(); renderList();''')
 
@@ -122,6 +134,9 @@ window.__khRefresh = () => {
   const typing = document.activeElement && document.activeElement.closest && document.activeElement.closest("#insp, .post-head");
   if (typing) scheduleRender(true); else { renderStage(); renderInspector(); }
 };''')
+
+    # icon-only buttons on narrow screens keep a tooltip
+    rep('<button class="btn" id="dlSlide">Download this slide</button>', '<button class="btn" id="dlSlide" title="Download this slide (PNG)">Download this slide</button>')
 
     # ---------- comments (js/comments.js draws the panel and the count badges) ----------
     rep('<button role="tab" id="tabPost" aria-selected="false">Post</button>',

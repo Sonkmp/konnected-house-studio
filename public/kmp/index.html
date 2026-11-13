@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en"><head>
+<html lang="en" data-studio="kmp"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>KMP Studio · Konnected House</title>
@@ -254,6 +254,8 @@ label.btn{cursor:pointer}
 }
 </style>
 
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="/css/studio-theme.css">
 </head><body>
 <div class="app">
   <header class="top">
@@ -263,6 +265,7 @@ label.btn{cursor:pointer}
       <span class="wordmark"><b>Carousel Studio</b><small>Carousels · Reel covers</small></span>
     </div>
     <nav class="kh-nav" id="khNav" aria-label="Studios"></nav>
+    <label class="kh-search"><input type="search" id="khSearch" placeholder="Search posts, quotes, guests" aria-label="Search posts" autocomplete="off"><kbd>⌘K</kbd></label>
     <div class="save" id="saveState" data-s="busy" role="status"><i></i><span>Connecting…</span></div>
     <div class="kh-user" id="khUser"></div>
   </header>
@@ -1203,7 +1206,7 @@ function renderThumbs(){
 function hasPhoto(s){ return !s.textOnly && (!!srcOf(s.img) || (s.layout === "split" && !!srcOf(s.img2))); }
 
 function sortedPosts(){
-  return [...state.posts.values()].filter(p => (p.format || "carousel") === state.fmt).sort((a, b) => (a.date||"9999").localeCompare(b.date||"9999") || DAY_ORDER.indexOf(a.day) - DAY_ORDER.indexOf(b.day) || a.title.localeCompare(b.title));
+  return [...state.posts.values()].filter(p => (p.format || "carousel") === state.fmt && matchQ(p)).sort((a, b) => (a.date||"9999").localeCompare(b.date||"9999") || DAY_ORDER.indexOf(a.day) - DAY_ORDER.indexOf(b.day) || a.title.localeCompare(b.title));
 }
 function renderList(){ fmtCounts();
   const list = $("#postList"), posts = sortedPosts();
@@ -1249,7 +1252,7 @@ function renderStage(){
       <span class="hint" title="← → move between slides · ⌘/Ctrl Z undo">Keys: ← →</span>
       <label class="toggle hint"><input type="checkbox" id="guidesChk" ${state.guides ? "checked" : ""}> Show guides</label>
       <span class="grow"></span>
-      ${reel ? `<button class="btn primary" id="dlSlide">Download ${p.format === "quote" ? "card" : "cover"} (PNG)</button>` : `<button class="btn" id="dlSlide">Download this slide</button>
+      ${reel ? `<button class="btn primary" id="dlSlide">Download ${p.format === "quote" ? "card" : "cover"} (PNG)</button>` : `<button class="btn" id="dlSlide" title="Download this slide (PNG)">Download this slide</button>
       <button class="btn primary" id="dlZip">Download ZIP</button>`}
     </div>
     <div class="editor${reel ? " single" : ""}">
@@ -1552,17 +1555,23 @@ function setFmt(f){
   if (state.currentId && !hist[state.currentId]) histInit(state.currentId);
   renderAll();
 }
+// Header search narrows the post list (title, date, pillar, caption, quote text, guest name).
+function matchQ(p){
+  const q = (state.q || "").trim().toLowerCase(); if (!q) return true;
+  const has = x => String(x || "").toLowerCase().includes(q);
+  return [p.title, p.date, fmtDate(p.date), themeOf(p).pillar, p.caption].some(has) || p.slides.some(s => [s.headline, s.sub, s.chip && s.chip.name].some(has));
+}
 // The toggle shows how many posts each format has.
 function fmtCounts(){
   const n = f => [...state.posts.values()].filter(p => (p.format || "carousel") === f).length;
-  document.querySelectorAll("#fmtSeg [data-fmt]").forEach(b => { b.innerHTML = `${b.dataset.label} <span class="n">${n(b.dataset.fmt)}</span>`; });
+  document.querySelectorAll("#fmtSeg [data-fmt]").forEach(b => { b.innerHTML = `<i class="ic" aria-hidden="true"></i><span class="l">${b.dataset.label} <span class="n">${n(b.dataset.fmt)}</span></span>`; });
 }
 // Role rules live in js/kh.js; the page only reflects them (Firestore rules enforce them).
 function syncAccess(){
   const p = cur();
   state.readOnly = !!(window.KH && p && !KH.canEdit(p));
   document.querySelectorAll("#fmtSeg [data-fmt]").forEach(b => { const on = b.dataset.fmt === state.fmt; b.classList.toggle("on", on); b.setAttribute("aria-selected", String(on)); });
-  const nb = $("#newPostBtn"); if (nb) nb.hidden = !!(window.KH && !KH.canCreate(state.fmt));
+  const nb = $("#newPostBtn"); if (nb){ nb.hidden = !!(window.KH && !KH.canCreate(state.fmt)); nb.textContent = "New " + ({carousel:"carousel", reel:"reel cover", quote:"quote card"}[state.fmt] || "post"); }
 }
 function renderAll(){ syncAccess(); renderList(); renderStage(); renderInspector(); renderSave(); renderBanner(); }
 
@@ -1833,6 +1842,8 @@ function wire(){
   $("#newDay").innerHTML = dayOptions(DAY_ORDER[(new Date().getDay() + 6) % 7]);
   $("#newDate").value = todayISO();
   $("#fmtSeg").addEventListener("click", e => { const b = e.target.closest("[data-fmt]"); if (b) setFmt(b.dataset.fmt); });
+  $("#khSearch").addEventListener("input", e => { state.q = e.target.value; renderList(); });
+  document.addEventListener("keydown", e => { if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k"){ e.preventDefault(); $("#khSearch").focus(); $("#khSearch").select(); } });
   $("#newPostBtn").addEventListener("click", e => { const f = $("#newForm"); f.hidden = !f.hidden; e.currentTarget.setAttribute("aria-expanded", String(!f.hidden)); });
   $("#newForm").addEventListener("submit", e => {
     e.preventDefault();

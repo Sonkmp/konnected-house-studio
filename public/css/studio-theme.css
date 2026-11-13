@@ -1,0 +1,300 @@
+/* Studio interface theme: deep navy, glass panels, blue/cyan accents.
+   INTERFACE ONLY. The artwork is drawn on <canvas> by the studio script with its own fixed colours
+   and fonts, so nothing here can change an exported slide. The studio's own variables (--bg, --panel,
+   --brand …) style the interface only; this file maps them onto the ui-* tokens below. */
+
+html[data-studio]{
+  --ui-bg:#070B1A; --ui-bg-2:#0B1228;
+  --ui-panel:rgba(17,27,54,.74); --ui-panel-2:rgba(28,42,78,.62); --ui-raise:rgba(255,255,255,.05);
+  --ui-field:rgba(5,10,26,.6); --ui-line:rgba(148,174,255,.13); --ui-line-2:rgba(148,174,255,.24);
+  --ui-fg:#F5F7FF; --ui-muted:#A4B1D0; --ui-dim:#8693B6;
+  --ui-accent:#168BFF; --ui-cyan:#27D9F2; --ui-ink:#04121A;
+  --ui-grad:linear-gradient(135deg,#0A6CD4 0%,#168BFF 55%,#1FA9F0 100%);
+  --ui-glow:rgba(39,160,242,.38); --ui-ok:#39D353;
+  --ui-glow-a:rgba(22,139,255,.30); --ui-glow-b:rgba(39,217,242,.14);
+}
+/* Unbroken: near-black charcoal glass with red accents (from Joseph's Unbroken reference) */
+html[data-studio="unbroken"]{
+  --ui-bg:#08080A; --ui-bg-2:#0E0E10;
+  --ui-panel:rgba(22,22,25,.80); --ui-panel-2:rgba(36,36,40,.72); --ui-raise:rgba(255,255,255,.045);
+  --ui-field:rgba(10,10,12,.66); --ui-line:rgba(255,255,255,.08); --ui-line-2:rgba(255,255,255,.16);
+  --ui-fg:#F7F5F5; --ui-muted:#B9B3B3; --ui-dim:#968F8F;
+  --ui-accent:#E3252B; --ui-cyan:#F0353B; --ui-ink:#FFFFFF;
+  --ui-grad:linear-gradient(135deg,#C9060D 0%,#E3252B 100%);
+  --ui-glow:rgba(227,37,43,.45);
+  --ui-glow-a:rgba(201,6,13,.30); --ui-glow-b:rgba(201,6,13,.22);
+}
+/* the studio's own variables, re-pointed at the ui tokens */
+html[data-studio]{
+  --bg:var(--ui-bg); --panel:var(--ui-panel); --panel-2:var(--ui-panel-2); --field:var(--ui-field);
+  --line:var(--ui-line); --line-2:var(--ui-line-2); --fg:var(--ui-fg); --muted:var(--ui-muted); --dim:var(--ui-dim);
+  --brand:var(--ui-cyan); --brand-ink:var(--ui-ink); --ok:var(--ui-ok);
+  --ui:"Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+/* icons (stroke SVGs used as masks, so they take the text colour) */
+html[data-studio]{
+  --i-car:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='6' y='4' width='12' height='16' rx='2'/%3E%3Cpath d='M2 7v10M22 7v10'/%3E%3C/svg%3E");
+  --i-reel:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='4' y='3' width='16' height='18' rx='4'/%3E%3Cpath d='M10 9.5l5 2.5-5 2.5z'/%3E%3C/svg%3E");
+  --i-quote:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 11.5a8.5 8.5 0 0 1-12.4 7.6L3.5 20.5l1.4-4.6A8.5 8.5 0 1 1 21 11.5z'/%3E%3C/svg%3E");
+  --i-layers:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3l9 5-9 5-9-5 9-5z'/%3E%3Cpath d='M3 13l9 5 9-5'/%3E%3C/svg%3E");
+  --i-edit:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='18' height='18' rx='4'/%3E%3Cpath d='M8 16h2.5L17 9.5 14.5 7 8 13.5z'/%3E%3C/svg%3E");
+  --i-down:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 4v11M7 10l5 5 5-5M5 20h14'/%3E%3C/svg%3E");
+  --i-undo:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 14L4 9l5-5'/%3E%3Cpath d='M4 9h10.5a5.5 5.5 0 0 1 0 11H11'/%3E%3C/svg%3E");
+  --i-redo:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M15 14l5-5-5-5'/%3E%3Cpath d='M20 9H9.5a5.5 5.5 0 0 0 0 11H13'/%3E%3C/svg%3E");
+  --i-search:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M20 20l-3.5-3.5'/%3E%3C/svg%3E");
+  --i-plus:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round'%3E%3Cpath d='M12 5v14M5 12h14'/%3E%3C/svg%3E");
+}
+html[data-studio] .ic, #fmtSeg button .ic, #tabSlide::before, #tabPost::before, #tabComments::before, #dlSlide::before, #dlZip::before,
+#undoBtn::before, #redoBtn::before, .kh-search::before, #newPostBtn::before{
+  content:""; display:inline-block; width:16px; height:16px; flex:0 0 auto; background:currentColor;
+  -webkit-mask:var(--ic) center / contain no-repeat; mask:var(--ic) center / contain no-repeat;
+}
+
+/* ---------- page ---------- */
+html[data-studio], html[data-studio] body{background:var(--ui-bg);font-family:var(--ui);-webkit-font-smoothing:antialiased}
+html[data-studio] body{
+  background:
+    radial-gradient(900px 520px at 88% -12%, var(--ui-glow-a), transparent 62%),
+    radial-gradient(760px 520px at -8% 108%, var(--ui-glow-b), transparent 60%),
+    linear-gradient(180deg, var(--ui-bg) 0%, var(--ui-bg-2) 100%) fixed;
+}
+html[data-studio] .app{gap:14px;padding-block:14px 18px}
+html[data-studio] :focus-visible{outline:2px solid var(--ui-cyan);outline-offset:2px}
+html[data-studio] button, html[data-studio] .btn, html[data-studio] .post-item, html[data-studio] .seg button,
+html[data-studio] .tpl, html[data-studio] .kh-nav a, html[data-studio] input, html[data-studio] select, html[data-studio] textarea{
+  transition:background-color .16s ease, border-color .16s ease, color .16s ease, box-shadow .2s ease, transform .16s ease;
+}
+
+/* ---------- header ---------- */
+html[data-studio] .top{gap:14px;min-height:48px}
+html[data-studio] .kh-homelink{width:40px;height:40px;border-radius:12px;background:var(--ui-raise);border:1px solid var(--ui-line)}
+html[data-studio] .kh-homelink:hover{background:var(--ui-panel-2);border-color:var(--ui-line-2)}
+html[data-studio] .top .brand{padding-right:18px;border-right:1px solid var(--ui-line-2)}
+html[data-studio] .top .brand img{height:30px}
+html[data-studio] .kh-nav{margin-left:2px;padding:4px;border-radius:14px;background:var(--ui-field);border:1px solid var(--ui-line);
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+html[data-studio] .kh-nav a{font:600 13.5px var(--ui);padding:8px 16px;border-radius:10px;color:var(--ui-muted)}
+html[data-studio] .kh-nav a[aria-current="page"]{background:var(--ui-grad);color:#fff;box-shadow:0 8px 22px -10px var(--ui-glow), inset 0 1px 0 rgba(255,255,255,.18)}
+html[data-studio] .kh-search{--ic:var(--i-search);margin-left:auto;display:flex;align-items:center;gap:9px;width:min(320px,28vw);height:40px;padding:0 10px 0 12px;
+  border-radius:12px;background:var(--ui-field);border:1px solid var(--ui-line);color:var(--ui-dim);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+html[data-studio] .kh-search:focus-within{border-color:var(--ui-cyan);box-shadow:0 0 0 3px color-mix(in srgb,var(--ui-cyan) 18%,transparent)}
+html[data-studio] .kh-search input{flex:1 1 auto;min-width:0;background:none!important;border:0!important;padding:0!important;box-shadow:none!important;font:500 13.5px var(--ui);color:var(--ui-fg)}
+html[data-studio] .kh-search input:focus{outline:none}
+html[data-studio] .kh-search kbd{font:600 11px var(--ui);color:var(--ui-dim);border:1px solid var(--ui-line-2);border-radius:6px;padding:2px 6px}
+html[data-studio] .save{margin-left:0;font:500 12.5px var(--ui)}
+html[data-studio] .kh-user .av{width:36px;height:36px;font:800 13px var(--ui);box-shadow:0 0 0 2px var(--ui-bg),0 0 0 3px rgba(70,192,1,.55)}
+html[data-studio] .kh-user .kh-out{width:36px;height:36px;border-radius:10px}
+
+/* ---------- panels ---------- */
+html[data-studio] .panel{background:var(--ui-panel);border:1px solid var(--ui-line);border-radius:20px;
+  backdrop-filter:blur(20px) saturate(140%);-webkit-backdrop-filter:blur(20px) saturate(140%);
+  box-shadow:0 24px 60px -30px rgba(0,0,0,.75), inset 0 1px 0 rgba(255,255,255,.045)}
+html[data-studio] .banner{border-radius:12px}
+
+/* ---------- left: posts ---------- */
+html[data-studio] .posts{padding:14px;gap:12px}
+html[data-studio] .posts-head{gap:10px}
+html[data-studio] .posts-head .kh-fmt{padding:4px;border-radius:14px;gap:4px;border-color:var(--ui-line)}
+html[data-studio] .posts-head .kh-fmt button{flex-direction:column;gap:5px;padding:9px 4px 8px;border-radius:10px;font:600 12px var(--ui);color:var(--ui-muted)}
+html[data-studio] #fmtSeg [data-fmt="carousel"] .ic{--ic:var(--i-car)}
+html[data-studio] #fmtSeg [data-fmt="reel"] .ic{--ic:var(--i-reel)}
+html[data-studio] #fmtSeg [data-fmt="quote"] .ic{--ic:var(--i-quote)}
+html[data-studio] .posts-head .kh-fmt .l{display:inline-flex;align-items:center;gap:5px}
+html[data-studio] .posts-head .kh-fmt button.on{background:var(--ui-grad);color:#fff;box-shadow:0 8px 22px -12px var(--ui-glow), inset 0 1px 0 rgba(255,255,255,.18)}
+html[data-studio] .posts-head .kh-fmt button:not(.on):hover{color:var(--ui-fg);background:var(--ui-raise)}
+html[data-studio] .kh-fmt .n{background:rgba(255,255,255,.1);color:inherit}
+html[data-studio] .kh-fmt button.on .n{background:rgba(255,255,255,.95);color:#0A3A7A}
+html[data-studio][data-studio="unbroken"] .kh-fmt button.on .n{color:#8A0509}
+html[data-studio] #newPostBtn{--ic:var(--i-plus);width:100%;margin:0;justify-content:center;gap:8px;height:42px;border-radius:12px;border:0;
+  background:var(--ui-grad);color:#fff;font:700 13.5px var(--ui);box-shadow:0 10px 26px -14px var(--ui-glow), inset 0 1px 0 rgba(255,255,255,.2)}
+html[data-studio] #newPostBtn:hover{filter:brightness(1.08)}
+html[data-studio] .newform{background:var(--ui-field);border:1px solid var(--ui-line);border-radius:14px;padding:12px}
+html[data-studio] .week{font:700 11px var(--ui);letter-spacing:.12em;color:var(--ui-dim);padding:14px 6px 6px}
+html[data-studio] .post-list{gap:6px;padding-right:2px}
+html[data-studio] .post-item{border-radius:14px;padding:11px 12px;background:rgba(255,255,255,.025);border:1px solid transparent;gap:11px}
+html[data-studio] .post-item:hover{background:var(--ui-raise);border-color:var(--ui-line)}
+html[data-studio] .post-item[aria-current="true"]{background:linear-gradient(180deg, color-mix(in srgb,var(--ui-accent) 20%,transparent), color-mix(in srgb,var(--ui-accent) 7%,transparent));
+  border-color:color-mix(in srgb,var(--ui-cyan) 55%,transparent);box-shadow:0 10px 28px -16px var(--ui-glow), inset 0 1px 0 rgba(255,255,255,.06)}
+html[data-studio] .pi-title{font:600 13.5px/1.3 var(--ui);color:var(--ui-fg)}
+html[data-studio] .pi-date{font:500 12px var(--ui);color:var(--ui-muted)}
+/* status: a word plus a dot, never colour alone */
+html[data-studio] .chip-st{display:inline-flex;align-items:center;gap:6px;text-transform:none;letter-spacing:0;font:600 11.5px var(--ui);
+  padding:4px 9px;border-radius:8px;background:rgba(255,255,255,.05);border:1px solid var(--ui-line-2);color:var(--ui-muted)}
+html[data-studio] .chip-st::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.85}
+html[data-studio] .chip-st[data-s="ready"]{color:var(--ui-cyan);border-color:color-mix(in srgb,var(--ui-cyan) 40%,transparent);background:color-mix(in srgb,var(--ui-cyan) 10%,transparent)}
+html[data-studio] .chip-st[data-s="posted"]{color:var(--ui-ok);border-color:color-mix(in srgb,var(--ui-ok) 40%,transparent);background:color-mix(in srgb,var(--ui-ok) 10%,transparent)}
+html[data-studio] .kh-cb{background:var(--ui-cyan);color:var(--ui-ink)}
+
+/* ---------- centre: workspace ---------- */
+html[data-studio] .stage{padding:16px 18px;gap:12px}
+html[data-studio] .title-input{font:700 21px/1.25 var(--ui)!important;letter-spacing:-.01em;border-radius:10px!important}
+html[data-studio] .post-head{gap:12px}
+html[data-studio] .meta-row label.f{font:600 11.5px var(--ui);color:var(--ui-dim)}
+html[data-studio] .toolbar{gap:8px;padding:6px;border-radius:14px;background:var(--ui-field);border:1px solid var(--ui-line)}
+html[data-studio] #undoBtn, html[data-studio] #redoBtn{font-size:0;width:36px;height:34px;padding:0;border-radius:10px;background:var(--ui-raise);border-color:var(--ui-line)}
+html[data-studio] #undoBtn{--ic:var(--i-undo)} html[data-studio] #redoBtn{--ic:var(--i-redo)}
+html[data-studio] .toolbar .hint{font:500 12px var(--ui);color:var(--ui-dim)}
+html[data-studio] #dlSlide, html[data-studio] #dlZip{--ic:var(--i-down);height:36px;border-radius:11px;font:600 13px var(--ui)}
+html[data-studio] .editor{padding:12px;border-radius:18px;border:1px solid var(--ui-line);
+  background:radial-gradient(70% 60% at 50% 40%, rgba(255,255,255,.035), transparent 70%), rgba(2,5,16,.42)}
+html[data-studio] #preview{border-radius:10px;box-shadow:0 30px 70px -28px rgba(0,0,0,.9), 0 0 0 1px rgba(255,255,255,.07)}
+html[data-studio] .nav{width:38px;height:38px;border-radius:50%;background:var(--ui-panel-2);border-color:var(--ui-line-2);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+html[data-studio] .nav:not([disabled]):hover{border-color:var(--ui-cyan);color:var(--ui-cyan)}
+html[data-studio] .under{padding:7px 10px 7px 14px;border-radius:14px;background:var(--ui-panel-2);border:1px solid var(--ui-line);align-self:center}
+html[data-studio] .viewer-foot{font:500 12px var(--ui);color:var(--ui-muted)}
+html[data-studio] .pb-item{background:transparent;border:0;padding:0}
+html[data-studio] .pb-item img, html[data-studio] .pb-empty{border-radius:8px}
+html[data-studio] .editor .strip{border-left-color:var(--ui-line)}
+html[data-studio] .thumb{color:var(--ui-dim);font:600 11px var(--ui)}
+html[data-studio] .thumb canvas{border-radius:8px;box-shadow:0 0 0 1px var(--ui-line)}
+html[data-studio] .thumb:hover canvas{box-shadow:0 0 0 1px var(--ui-line-2)}
+html[data-studio] .thumb[aria-current="true"] canvas{box-shadow:0 0 0 2px var(--ui-cyan), 0 10px 24px -10px var(--ui-glow)}
+html[data-studio] .thumb[aria-current="true"]{color:var(--ui-fg)}
+html[data-studio] .add-slide{border-radius:10px;border-color:var(--ui-line-2)}
+
+/* ---------- right: inspector ---------- */
+html[data-studio] .tabs{margin:12px 12px 4px;padding:4px;gap:4px;border:1px solid var(--ui-line);border-radius:14px;background:var(--ui-field)}
+html[data-studio] .tabs button{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:9px 6px;border:0;border-radius:10px;
+  text-transform:none;letter-spacing:0;font:600 13px var(--ui);color:var(--ui-muted)}
+html[data-studio] .tabs button:hover{color:var(--ui-fg);background:var(--ui-raise)}
+html[data-studio] .tabs button[aria-selected="true"]{background:var(--ui-grad);color:#fff;box-shadow:0 8px 22px -12px var(--ui-glow), inset 0 1px 0 rgba(255,255,255,.18)}
+html[data-studio] body.kh-cmt-open .tabs button[aria-selected="true"]:not(#tabComments){background:none;box-shadow:none;color:var(--ui-muted)}
+html[data-studio] #tabSlide::before{--ic:var(--i-layers)} html[data-studio] #tabPost::before{--ic:var(--i-edit)} html[data-studio] #tabComments::before{--ic:var(--i-quote)}
+html[data-studio] #tabComments .n{background:rgba(255,255,255,.92);color:#0A3A7A}
+html[data-studio] .insp-body{padding:10px 16px 18px;gap:18px}
+html[data-studio] .grp{gap:11px}
+html[data-studio] .grp + .grp{border-top-color:var(--ui-line);padding-top:16px}
+html[data-studio] .grp h3{font:700 14.5px var(--ui);letter-spacing:-.005em;text-transform:none;color:var(--ui-fg)}
+html[data-studio] .grp > h3 .fold i{opacity:.7}
+html[data-studio] .fold-all .link{font:600 12px var(--ui)}
+html[data-studio] label.f{font:600 12px var(--ui);color:var(--ui-muted)}
+html[data-studio] .help{font:500 12px/1.5 var(--ui);color:var(--ui-dim)}
+html[data-studio] .sl{font:600 12px var(--ui);color:var(--ui-muted)}
+html[data-studio] .sl output{font:600 12px var(--ui);color:var(--ui-fg)}
+
+/* ---------- controls ---------- */
+html[data-studio] input[type=text], html[data-studio] input[type=date], html[data-studio] input[type=search], html[data-studio] select, html[data-studio] textarea{
+  background:var(--ui-field);border:1px solid var(--ui-line-2);border-radius:10px;padding:9px 11px;font:500 13.5px var(--ui);color:var(--ui-fg)}
+html[data-studio] input[type=text]:hover, html[data-studio] select:hover, html[data-studio] textarea:hover, html[data-studio] input[type=date]:hover{border-color:color-mix(in srgb,var(--ui-cyan) 30%,var(--ui-line-2))}
+html[data-studio] input[type=text]:focus, html[data-studio] input[type=date]:focus, html[data-studio] select:focus, html[data-studio] textarea:focus{
+  outline:none;border-color:var(--ui-cyan);box-shadow:0 0 0 3px color-mix(in srgb,var(--ui-cyan) 18%,transparent)}
+html[data-studio] input[type=range]{accent-color:var(--ui-cyan)}
+html[data-studio] input[type=color]{border-radius:8px;border-color:var(--ui-line-2);background:var(--ui-field)}
+html[data-studio] .btn{border-radius:10px;border-color:var(--ui-line-2);background:var(--ui-raise);color:var(--ui-fg);font:600 13px var(--ui)}
+html[data-studio] .btn:hover{border-color:color-mix(in srgb,var(--ui-cyan) 45%,var(--ui-line-2));background:rgba(255,255,255,.08)}
+html[data-studio] .btn.sm{border-radius:9px;font-size:12px}
+html[data-studio] .btn.ghost{background:transparent}
+html[data-studio] .btn.primary{background:var(--ui-grad);color:#fff;border-color:transparent;box-shadow:0 10px 24px -14px var(--ui-glow), inset 0 1px 0 rgba(255,255,255,.2)}
+html[data-studio] .btn.primary:hover{filter:brightness(1.08);border-color:transparent}
+html[data-studio] .btn.danger{color:#FF8E8E}
+html[data-studio] .link{color:var(--ui-cyan)}
+html[data-studio] .seg{border-radius:12px;padding:4px;gap:4px;border-color:var(--ui-line);background:var(--ui-field)}
+html[data-studio] .seg button{border-radius:9px;font:600 12.5px var(--ui);padding:7px 9px;color:var(--ui-muted)}
+html[data-studio] .seg button:hover{color:var(--ui-fg);background:var(--ui-raise)}
+html[data-studio] .seg button.on{background:var(--ui-grad);color:#fff;box-shadow:0 6px 16px -10px var(--ui-glow), inset 0 1px 0 rgba(255,255,255,.18)}
+html[data-studio] .font-pick button.on{color:#fff}
+/* checkboxes become switches (the label text stays the accessible name) */
+html[data-studio] .toggle{gap:10px;font:500 13px var(--ui)}
+html[data-studio] .toggle input[type=checkbox]{appearance:none;-webkit-appearance:none;flex:0 0 auto;width:34px;height:20px;margin:0;border-radius:99px;
+  background:rgba(255,255,255,.14);border:1px solid var(--ui-line-2);position:relative;cursor:pointer;transition:background .18s ease}
+html[data-studio] .toggle input[type=checkbox]::before{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff;
+  box-shadow:0 1px 3px rgba(0,0,0,.4);transition:transform .18s ease}
+html[data-studio] .toggle input[type=checkbox]:checked{background:var(--ui-grad);border-color:transparent}
+html[data-studio] .toggle input[type=checkbox]:checked::before{transform:translateX(14px)}
+html[data-studio] .toggle input[type=checkbox]:focus-visible{outline:2px solid var(--ui-cyan);outline-offset:2px}
+html[data-studio] .sw{border-radius:8px;border-color:rgba(255,255,255,.18)}
+html[data-studio] .sw.on{box-shadow:0 0 0 2px var(--ui-bg), 0 0 0 4px var(--ui-cyan)}
+html[data-studio] .picker{background:var(--ui-field);border-color:var(--ui-line);border-radius:14px}
+html[data-studio] .drop{border-radius:12px;border-color:var(--ui-line-2)}
+html[data-studio] .drop.has img{border-radius:12px}
+html[data-studio] .lib button{border-radius:9px}
+html[data-studio] .lib button.on{box-shadow:0 0 0 2px var(--ui-cyan)}
+/* template cards: obvious selected state with a check */
+html[data-studio] .tpl{position:relative;border-radius:14px;padding:6px 6px 8px;gap:7px;background:var(--ui-field);border-color:var(--ui-line-2);font:600 12px var(--ui)}
+html[data-studio] .tpl:hover{border-color:color-mix(in srgb,var(--ui-cyan) 45%,var(--ui-line-2))}
+html[data-studio] .tpl canvas{border-radius:9px}
+html[data-studio] .tpl.on{border-color:var(--ui-cyan);box-shadow:0 0 0 1px var(--ui-cyan), 0 12px 28px -14px var(--ui-glow);color:var(--ui-fg)}
+html[data-studio] .tpl.on::after{content:"";position:absolute;top:11px;right:11px;width:20px;height:20px;border-radius:50%;background:var(--ui-cyan) center / 12px no-repeat
+  url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2304121A' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E");
+  box-shadow:0 2px 8px rgba(0,0,0,.4)}
+html[data-studio] .col-handle::after{background:var(--ui-cyan)}
+html[data-studio] .toast{background:var(--ui-panel-2);border-color:var(--ui-line-2);border-radius:12px;font:500 13px var(--ui);
+  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);box-shadow:0 20px 50px -20px rgba(0,0,0,.8)}
+/* comments panel */
+html[data-studio] .cmt{border-radius:12px}
+html[data-studio] .cmt-form{background:transparent}
+html[data-studio] .cmt-where{border-radius:8px}
+
+/* motion: quick, and none for people who ask for less */
+html[data-studio] .btn:active, html[data-studio] #newPostBtn:active{transform:translateY(1px)}
+@media (prefers-reduced-motion: reduce){html[data-studio] *{transition:none!important}}
+
+/* phones and narrow windows: keep the canvas, drop the extras */
+@media (max-width:1100px){html[data-studio] .kh-search{width:min(220px,24vw)} html[data-studio] .kh-search kbd{display:none}}
+@media (max-width:820px){
+  html[data-studio] .top .brand{border-right:0;padding-right:0}
+  html[data-studio] .kh-search{order:4;width:100%;margin-left:0}
+  html[data-studio] .panel{border-radius:16px}
+  html[data-studio] .toolbar{flex-wrap:wrap}
+}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+  html[data-studio] .panel{background:#111B36}
+  html[data-studio][data-studio="unbroken"] .panel{background:#241416}
+}
+
+/* layout tuning: a little more room for post titles; the slide keeps its minimum (panels stay draggable) */
+@media (min-width:1401px){html[data-studio] .work{--lw:276px;--rw:356px}}
+html[data-studio] .post-head{grid-template-columns:minmax(0,1fr) auto;align-items:end}
+html[data-studio] .meta-row{display:flex;gap:10px}
+html[data-studio] .meta-row label.f:nth-child(1){width:178px}
+html[data-studio] .meta-row label.f:nth-child(2){width:142px}
+html[data-studio] .meta-row label.f:nth-child(3){width:112px}
+html[data-studio] .post-head{grid-template-columns:minmax(200px,1fr) auto}
+@media (max-width:1220px){html[data-studio] .post-head{grid-template-columns:minmax(0,1fr)} html[data-studio] .meta-row label.f{flex:1 1 0;width:auto!important}}
+
+/* Unbroken specifics: underlined capital tabs, red pill format tabs, red-outlined choices */
+html[data-studio="unbroken"] body{
+  background:
+    radial-gradient(700px 420px at 30% -14%, var(--ui-glow-a), transparent 62%),
+    radial-gradient(620px 460px at -6% 108%, var(--ui-glow-b), transparent 60%),
+    linear-gradient(180deg, var(--ui-bg) 0%, var(--ui-bg-2) 100%) fixed;
+}
+html[data-studio="unbroken"] .tabs{margin:0;padding:0 8px;border:0;border-bottom:1px solid var(--ui-line);border-radius:0;background:transparent;gap:0}
+html[data-studio="unbroken"] .tabs button{border-radius:0;padding:15px 6px 13px;font:700 13px var(--ui);letter-spacing:.08em;text-transform:uppercase;border-bottom:2px solid transparent}
+html[data-studio="unbroken"] .tabs button::before{display:none}
+html[data-studio="unbroken"] .tabs button:hover{background:transparent}
+html[data-studio="unbroken"] .tabs button[aria-selected="true"]{background:transparent;box-shadow:none;color:var(--ui-cyan);border-bottom-color:var(--ui-cyan)}
+html[data-studio="unbroken"] body.kh-cmt-open .tabs button[aria-selected="true"]:not(#tabComments){border-bottom-color:transparent}
+html[data-studio="unbroken"] #tabComments .n{background:var(--ui-cyan);color:#fff}
+html[data-studio="unbroken"] .posts-head .kh-fmt{background:transparent;border:0;padding:0;gap:6px}
+html[data-studio="unbroken"] .posts-head .kh-fmt button{flex-direction:row;padding:8px 10px;border-radius:12px;background:var(--ui-raise);border:1px solid var(--ui-line)}
+html[data-studio="unbroken"] .posts-head .kh-fmt .ic{display:none}
+html[data-studio="unbroken"] .posts-head .kh-fmt button.on{border-color:transparent}
+html[data-studio="unbroken"] .kh-fmt button.on .n{background:rgba(255,255,255,.95);color:#8A0509}
+html[data-studio="unbroken"] .seg button.on{background:color-mix(in srgb,var(--ui-accent) 16%,transparent);color:#fff;box-shadow:inset 0 0 0 1.5px var(--ui-accent)}
+html[data-studio="unbroken"] .post-item[aria-current="true"]{background:color-mix(in srgb,var(--ui-accent) 10%,transparent);border-color:color-mix(in srgb,var(--ui-accent) 70%,transparent)}
+html[data-studio="unbroken"] #preview{box-shadow:0 30px 80px -30px rgba(201,6,13,.45), 0 0 0 1px rgba(255,255,255,.06)}
+html[data-studio="unbroken"] .kh-search:focus-within{box-shadow:0 0 0 3px rgba(227,37,43,.2)}
+html[data-studio="unbroken"] .toggle input[type=checkbox]:checked{background:var(--ui-accent)}
+html[data-studio="unbroken"] #tabSlide::before, html[data-studio="unbroken"] #tabPost::before, html[data-studio="unbroken"] #tabComments::before{display:none}
+html[data-studio="unbroken"] .posts-head .kh-fmt button{flex:1 1 0;min-width:0;padding:8px 4px;font-size:12px}
+html[data-studio] .post-list{overflow-x:hidden}
+html[data-studio="unbroken"] .posts-head .kh-fmt button{padding:8px 2px;font-size:11.5px;gap:0}
+html[data-studio="unbroken"] .posts-head .kh-fmt .l{gap:4px}
+html[data-studio] .kh-fmt .n{min-width:15px;padding:1px 4px}
+html[data-studio] .posts{overflow-x:hidden}
+html[data-studio="unbroken"] #fmtSeg .ic{display:none}
+html[data-studio] .chip-st[data-s="reel"]{display:none}
+/* laptop widths: title on its own row, fields share the next; the keyboard hint steps aside */
+@media (max-width:1400px){
+  html[data-studio] .post-head{grid-template-columns:minmax(0,1fr)}
+  html[data-studio] .meta-row label.f{flex:1 1 0;width:auto!important;min-width:0}
+  html[data-studio] .toolbar > span.hint{display:none}
+}
+@media (max-width:1400px){
+  html[data-studio] #dlSlide:not(.primary){font-size:0;width:36px;padding:0;gap:0}
+  html[data-studio] .viewer-foot span + span{display:none}
+  html[data-studio] .title-input{font-size:18px!important}
+  html[data-studio] .stage{padding:14px 16px;gap:10px}
+}

@@ -10,6 +10,8 @@ public/            the site (Vercel and Firebase Hosting both serve this folder)
   team/            admins add people and set roles
   js/kh.js         Firebase setup, roles, photo store
   js/studio.js     connects a studio page to Firebase
+  css/studio-theme.css  the studio interface theme (glass, navy/blue for KMP, black/red for Unbroken).
+                   Interface only: slides are drawn on canvas with their own colours and never read it.
 studios/           studio sources, the same files the claude.ai artifacts are built from
 tools/port.py      turns studios/*.src.html into public/*/index.html
 tools/kh-admin.mjs admin tasks (rules, members, importing posts and photos)
