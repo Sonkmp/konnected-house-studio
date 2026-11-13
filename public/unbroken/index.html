@@ -1449,7 +1449,7 @@ function photoBar(s){
   const slots = s.layout === "split" ? [["img", "Top still"], ["img2", "Bottom still"]] : [["img", "Photo"]];
   return `<div class="photo-bar">${slots.map(([slot, l]) => { const src = srcOf(s[slot]); return `<div class="pb-item">
     ${src ? `<img src="${esc(src)}" alt="">` : `<span class="pb-empty"></span>`}<span class="pb-l">${l}</span>
-    <label class="btn sm">${src ? "Change" : "+ Add photo"}<input type="file" accept="image/*" data-file="${slot}" hidden></label>
+    <button type="button" class="btn sm" data-act="gallery" data-slot="${slot}" title="Pick from the gallery or upload a new photo">${src ? "Change" : "+ Add photo"}</button>
     ${src ? `<button type="button" class="btn sm ghost" data-act="clear-img" data-slot="${slot}">Remove</button>` : ""}
   </div>`; }).join("")}</div>`;
 }
@@ -1479,8 +1479,8 @@ function picker(p, s, slot, label){
     <div class="pk-head"><span>${label}</span></div>
     <label class="drop${src ? " has" : ""}" data-drop="${slot}">${src ? `<img src="${esc(src)}" alt="">` : `<span>No photo on this slide.<br>Drop one here or <u>browse</u></span>`}<input type="file" accept="image/*" multiple data-file="${slot}" hidden></label>
     <div class="pk-actions">
-      <label class="btn sm">${src ? "Change photo" : "+ Add photo"}<input type="file" accept="image/*" data-file="${slot}" hidden></label>
-      <button type="button" class="btn sm" data-act="gallery" data-slot="${slot}">Gallery</button>
+      <button type="button" class="btn sm" data-act="gallery" data-slot="${slot}">${src ? "Change photo" : "+ Add photo"}</button>
+      <label class="btn sm ghost">Upload new<input type="file" accept="image/*" multiple data-file="${slot}" hidden></label>
       ${src ? `<button type="button" class="btn sm danger" data-act="clear-img" data-slot="${slot}">Remove photo</button>` : ""}
     </div>
     ${lib ? `<span class="help">Or pick one already in this post:</span>${lib}` : ""}
@@ -1500,8 +1500,8 @@ function bgPicker(p, scope, ref, label, note){
     <div class="pk-head"><span>${label}</span></div>
     <label class="drop${src ? " has" : ""}" data-drop="${slot}">${src ? `<img src="${esc(src)}" alt="">` : `<span>${note}<br>Drop an image here or <u>browse</u></span>`}<input type="file" accept="image/*" data-file="${slot}" hidden></label>
     <div class="pk-actions">
-      <label class="btn sm">${src ? "Change image" : "+ Add image"}<input type="file" accept="image/*" data-file="${slot}" hidden></label>
-      <button type="button" class="btn sm" data-act="gallery" data-slot="${slot}">Gallery</button>
+      <button type="button" class="btn sm" data-act="gallery" data-slot="${slot}">${src ? "Change image" : "+ Add image"}</button>
+      <label class="btn sm ghost">Upload new<input type="file" accept="image/*" data-file="${slot}" hidden></label>
       ${src ? `<button type="button" class="btn sm danger" data-act="clear-bg" data-scope="${scope}">Remove</button>` : ""}
     </div>
     ${lib ? `<span class="help">Or use one already in this post:</span>${lib}` : ""}
@@ -1937,7 +1937,14 @@ function placePhoto(p, slot, ref){
   else if (slot !== "lib" && s){
     s[slot] = ref; s.textOnly = false;
     if (slot === "img") { s.fx = .5; s.fy = .3; s.zoom = 1; } else { s.fx2 = .5; s.fy2 = .3; s.zoom2 = 1; }
+    fillOtherStill(s, slot, ref);
   }
+}
+// On a two-stills slide, a photo added to one still also goes in the other while that one is empty.
+function fillOtherStill(s, slot, ref){
+  if (!s || s.layout !== "split" || !ref) return;
+  if (slot === "img" && !srcOf(s.img2)){ s.img2 = ref; s.fx2 = .5; s.fy2 = .3; s.zoom2 = 1; }
+  else if (slot === "img2" && !srcOf(s.img)){ s.img = ref; s.fx = .5; s.fy = .3; s.zoom = 1; }
 }
 function openGallery(slot){
   const d = $("#gallery"); if (!d || !cur()) return;
@@ -1963,7 +1970,7 @@ function renderGallery(){
   const load = img => galleryUrl(list[+img.dataset.galImg]).then(u => { if (u){ img.src = u; img.onload = () => img.classList.add("ld"); } });
   if ("IntersectionObserver" in window){
     galObs = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting){ galObs.unobserve(e.target); load(e.target); } }), {root: grid, rootMargin: "300px"});
-    grid.querySelectorAll("img").forEach(img => galObs.observe(img));
+    grid.querySelectorAll("img").forEach((img, i) => { if (i < 24) load(img); else galObs.observe(img); });
   } else grid.querySelectorAll("img").forEach(load);
 }
 function wireGallery(){
@@ -2000,8 +2007,8 @@ async function addFiles(files, slot){
   else if (slot === "bgImg" && s) s.bgImg = refs[0];
   else if (slot && slot !== "lib" && s){
     s[slot] = refs[0]; s.textOnly = false;
-    if (s.layout === "split" && slot === "img" && refs[1] && !srcOf(s.img2)) s.img2 = refs[1];
     if (slot === "img") { s.fx = .5; s.fy = .3; s.zoom = 1; } else { s.fx2 = .5; s.fy2 = .3; s.zoom2 = 1; }
+    fillOtherStill(s, slot, refs[1] || refs[0]);
   }
   renderInspector(); renderStage();
   if (!state.assets){
@@ -2173,6 +2180,7 @@ function wire(){
       const at = p.slides.length && p.slides[p.slides.length - 1].layout === "cta" && layout !== "cta" ? p.slides.length - 1 : p.slides.length;
       p.slides.splice(at, 0, s); state.slideIdx = at; renderStage(); renderInspector(); touch(p.id); return;
     }
+    const gal = e.target.closest('[data-act="gallery"]'); if (gal) return openGallery(gal.dataset.slot);
     const clr = e.target.closest('[data-act="clear-img"]');
     if (clr){ const s = curSlide(); if (s){ s[clr.dataset.slot] = null; renderStage(); renderInspector(); touch(p.id); } return; }
     if (e.target.closest("#undoBtn")) return undoRedo(-1);
