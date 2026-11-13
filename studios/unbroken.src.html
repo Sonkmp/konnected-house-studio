@@ -393,7 +393,7 @@ function normPost(id, p){
   n.slides = (n.slides||[]).map(normSlide);
   return n;
 }
-const LOOK_KEYS = ["tpl","qTheme","reelLabel","hiScale","font","hlStyle","hlLast","weight","caps","textColor","scale","lh","track","boxColor","fade","fadeH","topFade","shadow","shadowColor","fadeColor","arrowColor","bw","align","textPos","numAlpha","numScale","badgeColor","badgePos","frame","frameColor"];
+const LOOK_KEYS = ["tpl","qTheme","footMode","reelLabel","hiScale","font","hlStyle","hlLast","weight","caps","textColor","scale","lh","track","boxColor","fade","fadeH","topFade","shadow","shadowColor","fadeColor","arrowColor","bw","align","textPos","numAlpha","numScale","badgeColor","badgePos","frame","frameColor"];
 // "Use this slide's look on every slide" copies the saved-look settings plus these
 const ALL_KEYS = [...LOOK_KEYS, "hideLabel", "chipPos", "bgImg", "bgDim", "topFade"];
 const presetKey = p => single(p) ? p.format : p.day;
@@ -954,9 +954,9 @@ function drawQuoteCard(ctx, p, s, t){
   ctx.fillStyle = foot; ctx.fillRect(0, 0, W, H);
   ctx.fillStyle = T.bg; rr(ctx, 0, -80, W, footTop + 80, 64); ctx.fill();
   const tx = Math.round(W * .62);
-  ctx.beginPath(); ctx.moveTo(tx - 130, footTop - 4);
-  ctx.quadraticCurveTo(tx - 12, footTop + 12, tx + 30, footTop + 98);
-  ctx.quadraticCurveTo(tx + 38, footTop + 40, tx + 62, footTop - 4); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(tx - 78, footTop - 4);     // a small tail, so it stays clear of the footer bar
+  ctx.quadraticCurveTo(tx - 8, footTop + 4, tx + 20, footTop + 38);
+  ctx.quadraticCurveTo(tx + 24, footTop + 14, tx + 40, footTop - 4); ctx.closePath(); ctx.fill();
   // episode pill, sized to its text; the photo frame steps around it
   const x0 = pad, y0 = pad, x1 = W - pad, y1 = 812;
   const pillTxt = (s.badge || "").trim().toUpperCase(), pillH = 84, pillPad = 38;
@@ -990,13 +990,48 @@ function drawQuoteCard(ctx, p, s, t){
     const top = y1 + 54, room = footTop - 60 - top, total = stackHeight(ctx, items);
     drawStack(ctx, items, total < room ? top + (room - total)/2 : top, left ? "left" : "center", left ? x0 + 20 : W/2, t, false);
   }
-  // episode line in the footer, shrunk to fit
+  // footer: the listen-on bar, or the episode line
+  if ((s.footMode || "cta") === "cta"){ ubListenBar(ctx, footTop + 116, foot, pad); return; }
   const line = (s.tag || "").trim().toUpperCase();
   if (line){
     let size = 25; ctx.font = `700 ${size}px Poppins, system-ui, sans-serif`;
     while (size > 15 && spacedW(ctx, line, 3) > W - 2*pad){ size--; ctx.font = `700 ${size}px Poppins, system-ui, sans-serif`; }
     ctx.fillStyle = inkFor(foot); spaced(ctx, line, W/2, footTop + 146, 3, "center");
   }
+}
+// White round icons with the glyphs in the footer colour: YouTube, Instagram, Facebook, TikTok | Spotify, Apple Podcasts
+function ubIcon(ctx, kind, cx, cy, r, ink){
+  ctx.save(); ctx.fillStyle = "#FFFFFF"; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = ink; ctx.strokeStyle = ink; ctx.lineCap = "round"; ctx.lineJoin = "round";
+  const u = r / 28;
+  if (kind === "yt"){ rr(ctx, cx - 15*u, cy - 10.5*u, 30*u, 21*u, 6*u); ctx.fill();
+    ctx.fillStyle = "#FFFFFF"; ctx.beginPath(); ctx.moveTo(cx - 4*u, cy - 6*u); ctx.lineTo(cx + 6*u, cy); ctx.lineTo(cx - 4*u, cy + 6*u); ctx.closePath(); ctx.fill(); }
+  if (kind === "ig"){ ctx.lineWidth = 3.4*u; rr(ctx, cx - 13*u, cy - 13*u, 26*u, 26*u, 8*u); ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx, cy, 6*u, 0, Math.PI*2); ctx.stroke(); ctx.beginPath(); ctx.arc(cx + 7.5*u, cy - 7.5*u, 1.9*u, 0, Math.PI*2); ctx.fill(); }
+  if (kind === "fb"){ ctx.font = `800 ${Math.round(34*u)}px Poppins, Arial, sans-serif`; ctx.textAlign = "center"; ctx.fillText("f", cx + 1*u, cy + 12*u); }
+  if (kind === "tt"){ ctx.lineWidth = 4.4*u; ctx.beginPath(); ctx.moveTo(cx + 2*u, cy - 14*u); ctx.lineTo(cx + 2*u, cy + 6*u); ctx.stroke();
+    ctx.lineWidth = 3.6*u; ctx.beginPath(); ctx.arc(cx - 4*u, cy + 6*u, 6.2*u, 0, Math.PI*2); ctx.stroke();
+    ctx.lineWidth = 4*u; ctx.beginPath(); ctx.moveTo(cx + 2*u, cy - 14*u); ctx.quadraticCurveTo(cx + 4*u, cy - 6*u, cx + 12*u, cy - 6*u); ctx.stroke(); }
+  if (kind === "sp"){ ctx.lineWidth = 3.4*u; [[-7, 13, .5], [0, 11, .42], [7, 8, .34]].forEach(([dy, hw, b]) => { ctx.beginPath(); ctx.moveTo(cx - hw*u, (cy + dy*u) - 1); ctx.quadraticCurveTo(cx, cy + dy*u - hw*b*u - 1, cx + hw*u, cy + dy*u + 1.5*u); ctx.stroke(); }); }
+  if (kind === "pc"){ ctx.lineWidth = 3*u; ctx.beginPath(); ctx.arc(cx, cy - 3*u, 12*u, Math.PI*0.78, Math.PI*2.22); ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx, cy - 3*u, 6.5*u, Math.PI*0.78, Math.PI*2.22); ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx, cy - 3*u, 3*u, 0, Math.PI*2); ctx.fill(); rr(ctx, cx - 2.4*u, cy + 2*u, 4.8*u, 12*u, 2.4*u); ctx.fill(); }
+  ctx.restore();
+}
+function ubListenBar(ctx, cy, foot, pad){
+  const r = 30, gap = 12, font = "700 31px Poppins, system-ui, sans-serif";
+  ctx.save(); ctx.font = font;
+  const name = "UNBROKEN PODCAST", listen = "LISTEN ON:", nw = spacedW(ctx, name, 1), lw = spacedW(ctx, listen, 1);
+  const social = 4*2*r + 3*gap, apps = 2*2*r + gap;
+  const total = social + 22 + nw + 30 + 3 + 30 + lw + 18 + apps, k = Math.min(1, (W - 2*pad) / total);
+  ctx.translate(W/2 - total*k/2, cy); ctx.scale(k, k);
+  let x = 0;
+  ["yt", "ig", "fb", "tt"].forEach(kind => { ubIcon(ctx, kind, x + r, 0, r, foot); x += 2*r + gap; });
+  x += 22 - gap; ctx.fillStyle = "#FFFFFF"; ctx.font = font; spaced(ctx, name, x, 11, 1, "left"); x += nw + 30;
+  ctx.fillStyle = hexA("#FFFFFF", .55); ctx.fillRect(x, -26, 3, 52); x += 3 + 30;
+  ctx.fillStyle = "#FFFFFF"; spaced(ctx, listen, x, 11, 1, "left"); x += lw + 18;
+  ["sp", "pc"].forEach(kind => { ubIcon(ctx, kind, x + r, 0, r, foot); x += 2*r + gap; });
+  ctx.restore();
 }
 function inspQuote(p, s){
   if (QUOTE_STYLE === "kmp") return inspQuoteKmp(p, s);
@@ -1011,7 +1046,8 @@ function inspQuote(p, s){
       ${field("The quote", "headline", s.headline, {area:true, rows:4, fmt:true})}
       ${field("Who said it", "sub", s.sub, {ph:"- Guest name or @handle"})}
       ${field("Episode pill", "badge", s.badge, {ph:"e.g. EP 12 or S01/E13"})}
-      ${field("Footer line", "tag", s.tag, {ph:"e.g. EP 12 · Before you say I do with ..."})}
+      <div><span class="help">Footer</span> ${seg("footMode", [["cta", "Listen-on bar"], ["episode", "Episode line"]], s.footMode || "cta")}</div>
+      ${(s.footMode || "cta") === "episode" ? field("Footer line", "tag", s.tag, {ph:"e.g. EP 12 · Before you say I do with ..."}) : ""}
     </section>
     <section class="grp"><h3>Photo</h3>
       ${picker(p, s, "img", "Guest photo")}
