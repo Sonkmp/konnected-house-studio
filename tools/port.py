@@ -91,7 +91,7 @@ def port(key):
 function matchQ(p){
   const q = (state.q || "").trim().toLowerCase(); if (!q) return true;
   const has = x => String(x || "").toLowerCase().includes(q);
-  return [p.title, p.date, fmtDate(p.date), themeOf(p).pillar, p.caption].some(has) || p.slides.some(s => [s.headline, s.sub, s.chip && s.chip.name].some(has));
+  return [p.title, p.date, fmtDate(p.date), themeOf(p).pillar, p.caption, p.guest].some(has) || p.slides.some(s => [s.headline, s.sub, s.chip && s.chip.name].some(has));
 }
 // The toggle shows how many posts each format has.
 function fmtCounts(){
