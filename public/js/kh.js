@@ -5,7 +5,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import {
   initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
-  doc, getDoc, getDocs, setDoc, collection, Bytes
+  doc, getDoc, getDocs, setDoc, deleteDoc, collection, Bytes
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
 // The web config is public by design; access is controlled by firestore.rules.
@@ -214,6 +214,16 @@ export function assetStore(studio, onReady) {
       toCache(id, blob);
       urls.set(id, URL.createObjectURL(blob));
       return { id };
+    },
+    // Deletes a photo for everyone. The main record goes first, so the gallery drops it at once and
+    // a half-finished delete never looks like a whole photo; then its chunks.
+    async remove(id) {
+      const base = doc(db, "studios", studio, "assets", id);
+      await deleteDoc(base);
+      const parts = await getDocs(collection(base, "chunks"));
+      await Promise.all(parts.docs.map(d => deleteDoc(d.ref)));
+      try { const c = await caches.open(CACHE); await c.delete(cacheKey(id)); } catch (e) { /* the cache is a speed-up only */ }
+      urls.delete(id); pending.delete(id);
     }
   };
 }

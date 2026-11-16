@@ -74,7 +74,7 @@ function collectionApi(name) {
 
 const api = {
   db: { collection: collectionApi },
-  assets: { upload: file => assets.upload(file, s.email) },
+  assets: { upload: file => assets.upload(file, s.email), remove: id => assets.remove(id) },
   downloads: {
     async save({ filename, data }) {
       const blob = data instanceof Blob ? data : new Blob([data]);

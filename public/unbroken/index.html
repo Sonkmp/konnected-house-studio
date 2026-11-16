@@ -133,10 +133,25 @@ input[type=color]{width:34px;height:30px;border:1px solid var(--line-2);border-r
 @media (max-width:820px){.editor{grid-template-columns:minmax(0,1fr)}.editor .col-handle{display:none}}
 .canvas-col{display:flex;flex-direction:column;gap:10px;min-width:0;min-height:0}
 .under{display:flex;align-items:center;justify-content:center;gap:8px 16px;flex-wrap:wrap}
+/* "Hide details": the title shares one row with the toolbar, so the slide gets the height */
+.stage-head{display:flex;flex-direction:column;gap:inherit;min-width:0}
+.stage.compact .stage-head{flex-direction:row;align-items:center;gap:12px}
+.stage.compact .post-head{display:block;flex:1 1 auto;min-width:120px}
+.stage.compact .post-head .meta-row, .stage.compact .post-head .guest-f{display:none}
+.stage.compact .title-input{font-size:16px!important;padding:6px 8px!important}
+.stage.compact .toolbar{flex:0 1 auto;flex-wrap:nowrap}
+.stage.compact .toolbar span.hint{display:none}
+#compactBtn{white-space:nowrap}
+/* zoom on the slide */
+.zoom{display:inline-flex;align-items:center;gap:2px}
+.zoom .btn{min-width:32px;padding-inline:8px}
+#zoomFit{min-width:52px;font-variant-numeric:tabular-nums}
+.stagebox.zoomed{overflow:auto;place-items:start;overscroll-behavior:contain}
+.stagebox.zoomed .canvas-wrap{margin:auto}
 .under .viewer-foot{flex-direction:column;gap:2px;text-align:left}
 .viewer{display:grid;grid-template-columns:36px minmax(0,1fr) 36px;align-items:center;gap:8px;min-height:0}
 .stagebox{display:grid;place-items:center;min-width:0;min-height:0}
-.canvas-wrap{justify-self:center;width:100%;max-width:520px;position:relative}
+.canvas-wrap{justify-self:center;width:calc(100% * var(--z, 1));max-width:calc(520px * var(--z, 1));position:relative;flex:0 0 auto}
 #preview{display:block;width:100%;height:auto;border-radius:6px;background:#000;
   box-shadow:0 30px 60px -30px rgba(0,0,0,.8),0 0 0 1px var(--line);touch-action:none}
 #preview.draggable{cursor:grab}
@@ -220,7 +235,9 @@ input[type=color]{width:34px;height:30px;border:1px solid var(--line-2);border-r
 .gal-pick.on{border-color:var(--brand);box-shadow:0 0 0 2px var(--brand)}
 .gal-name{position:absolute;left:0;right:0;bottom:0;padding:22px 8px 7px;background:linear-gradient(transparent, rgba(0,0,0,.82));color:#fff;font-size:12px;font-weight:700;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .gal-edit{position:absolute;top:6px;right:6px;padding:3px 8px;border:0;border-radius:99px;background:rgba(0,0,0,.72);color:#fff;font-size:11px;font-weight:700;opacity:0;transition:opacity .15s}
-.gal-cell:hover .gal-edit, .gal-edit:focus-visible{opacity:1}
+.gal-del{position:absolute;top:6px;left:6px;padding:3px 8px;border:0;border-radius:99px;background:rgba(160,20,24,.88);color:#fff;font-size:11px;font-weight:700;opacity:0;transition:opacity .15s}
+.gal-cell:hover .gal-edit, .gal-edit:focus-visible, .gal-cell:hover .gal-del, .gal-del:focus-visible{opacity:1}
+.gal-cell:hover .gal-tag{opacity:0}
 .gal-auto{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted)}
 .gal-grid img{width:100%;height:100%;object-fit:cover;display:block;opacity:0;transition:opacity .2s}
 .gal-grid img.ld{opacity:1}
@@ -277,11 +294,11 @@ label.btn{cursor:pointer}
   .viewer{flex:1 1 auto}
   .viewer, .stagebox{height:100%}
   .stagebox{container-type:size}
-  .canvas-wrap{width:min(100cqw, calc(100cqh * var(--ar)));max-width:none}
-  .editor .strip{flex-direction:column;align-items:center;overflow-x:hidden;overflow-y:auto;padding:4px 4px 8px;min-height:0;height:100%;
-    border-left:1px solid var(--line);overscroll-behavior:contain}
-  .editor .thumb canvas{width:calc(var(--sw) - 20px)}
-  .editor .add-slide{width:calc(var(--sw) - 20px);aspect-ratio:auto;padding:10px 6px}
+  .canvas-wrap{width:calc(min(100cqw, 100cqh * var(--ar)) * var(--z, 1));max-width:none}
+  .editor .strip{display:grid;grid-template-columns:repeat(auto-fill, minmax(min(100%, 88px), 112px));justify-content:center;align-content:start;gap:10px 8px;
+    overflow-x:hidden;overflow-y:auto;padding:4px 4px 8px;min-height:0;height:100%;border-left:1px solid var(--line);overscroll-behavior:contain}
+  .editor .thumb canvas{width:100%}
+  .editor .add-slide{grid-column:1 / -1;width:auto;aspect-ratio:auto;padding:10px 6px}
 }
 </style>
 
@@ -409,7 +426,9 @@ const state = {
   posts: new Map(), presets: {}, currentId: null, slideIdx: 0, tab: "slide",
   mode: "loading", db: null, assets: null, downloads: null,
   dirty: new Set(), saving: new Set(), readOnly: false, saveError: false, stale: false,
-  uploading: new Map(),   // post id -> photos still uploading; the saved copy never replaces such a post
+  uploading: new Map(),
+  zoom: 1,   // 1 = the slide fits the space; up to 4
+  compact: (() => { try { return localStorage.getItem("kh.compactHead") === "1"; } catch(e){ return false; } })(),   // post id -> photos still uploading; the saved copy never replaces such a post
   confirm: null, fmt: "carousel"
 };
 const cur = () => state.posts.get(state.currentId) || null;
@@ -1491,6 +1510,8 @@ function renderList(){ fmtCounts();
 function dayOptions(sel){ return DAY_ORDER.map(d => `<option value="${d}"${d === sel ? " selected" : ""}>${DAYS[d].name} · ${DAYS[d].pillar}</option>`).join(""); }
 function renderStage(){
   const st = $("#stage"), p = cur();
+  st.classList.toggle("compact", !!(p && state.compact));
+  const ob = $(".stagebox"), keep = ob ? [ob.scrollLeft, ob.scrollTop] : null;   // a zoomed-in view stays where it was
   if (!p){
     st.innerHTML = `<div class="empty-stage">
       <span class="eyebrow">${state.mode === "loading" ? "Loading posts" : "No post open"}</span>
@@ -1501,6 +1522,7 @@ function renderStage(){
   }
   const n = p.slides.length, reel = single(p);
   st.innerHTML = `
+    <div class="stage-head">
     <div class="post-head">
       <input type="text" class="title-input" id="postTitle" value="${esc(p.title)}" aria-label="Post title" data-pk="title">
       <div class="meta-row">
@@ -1515,15 +1537,22 @@ function renderStage(){
       <button class="btn ghost sm" id="redoBtn" title="Redo (Shift Ctrl/⌘ Z)">Redo</button>
       <span class="hint" title="← → move between slides · ⌘/Ctrl Z undo">Keys: ← →</span>
       <label class="toggle hint"><input type="checkbox" id="guidesChk" ${state.guides ? "checked" : ""}> Show guides</label>
+      <span class="zoom" role="group" aria-label="Zoom">
+        <button class="btn ghost sm" id="zoomOut" title="Zoom out (−)" aria-label="Zoom out">−</button>
+        <button class="btn ghost sm" id="zoomFit" title="Fit the slide (0)">${state.zoom > 1 ? Math.round(state.zoom * 100) + "%" : "Fit"}</button>
+        <button class="btn ghost sm" id="zoomIn" title="Zoom in (+). Pinch or Ctrl/⌘ + scroll also zooms" aria-label="Zoom in">+</button>
+      </span>
+      <button class="btn ghost sm" id="compactBtn" aria-pressed="${state.compact}" title="${state.compact ? "Show pillar, date, status and guest" : "Hide pillar, date, status and guest to give the slide more room"}">${state.compact ? "Show details" : "Hide details"}</button>
       <span class="grow"></span>
       ${reel ? `<button class="btn primary" id="dlSlide">Download ${p.format === "quote" ? "card" : "cover"} (PNG)</button>` : `<button class="btn" id="dlSlide" title="Download this slide (PNG)">Download this slide</button>
       <button class="btn primary" id="dlZip">Download ZIP</button>`}
+    </div>
     </div>
     <div class="editor${reel ? " single" : ""}">
     <div class="canvas-col">
     <div class="viewer">
       ${reel ? "<span></span>" : `<button class="nav" id="prevSlide" aria-label="Previous slide"${state.slideIdx <= 0 ? " disabled" : ""}>‹</button>`}
-      <div class="stagebox"><div class="canvas-wrap" style="--ar:${W/postH(p)}"><canvas id="preview" width="${W}" height="${postH(p)}" style="aspect-ratio:${W}/${postH(p)}" role="img" aria-label="Slide preview"></canvas></div></div>
+      <div class="stagebox${state.zoom > 1 ? " zoomed" : ""}"><div class="canvas-wrap" style="--ar:${W/postH(p)};--z:${state.zoom}"><canvas id="preview" width="${W}" height="${postH(p)}" style="aspect-ratio:${W}/${postH(p)}" role="img" aria-label="Slide preview"></canvas></div></div>
       ${reel ? "<span></span>" : `<button class="nav" id="nextSlide" aria-label="Next slide"${state.slideIdx >= n-1 ? " disabled" : ""}>›</button>`}
     </div>
     <div class="under"><div class="viewer-foot"><span>${reel ? `${FORMAT_NAME[p.format]} · ${W} × ${postH(p)}` : `Slide ${state.slideIdx+1} of ${n}`}</span><span>${hasPhoto(curSlide()||{}) ? "Drag the photo to move it" : "No photo on this slide"}</span></div>
@@ -1541,6 +1570,7 @@ function renderStage(){
   scheduleRender(true);
   fitCols(); // saved panel widths still leave the slide its minimum
   if (window.__khOnStage) window.__khOnStage();
+  const nb = $(".stagebox"); if (nb && keep && state.zoom > 1){ nb.scrollLeft = keep[0]; nb.scrollTop = keep[1]; }
 }
 
 function photoBar(s){
@@ -1978,6 +2008,24 @@ function openPost(id, idx = 0){
   const p = cur(); if (p){ entry(p.bgImg); p.slides.forEach(s => { entry(s.img); entry(s.img2); entry(s.bgImg); }); if (!hist[id]) histInit(id); }
   renderAll();
 }
+/* zoom: 1 fits the slide in the space; up to 4×. Zooming keeps the point under the pointer still. */
+function applyZoom(){
+  const box = $(".stagebox"), wrap = $(".canvas-wrap"); if (!wrap) return;
+  wrap.style.setProperty("--z", state.zoom); box.classList.toggle("zoomed", state.zoom > 1);
+  const f = $("#zoomFit"); if (f) f.textContent = state.zoom > 1 ? Math.round(state.zoom * 100) + "%" : "Fit";
+}
+function setZoom(z, ax, ay){
+  z = clamp(Math.round(z * 100) / 100, 1, 4); if (z === state.zoom) return;
+  const box = $(".stagebox"), wrap = $(".canvas-wrap");
+  if (!box || !wrap){ state.zoom = z; return; }
+  const b = box.getBoundingClientRect(), r = wrap.getBoundingClientRect();
+  if (ax == null){ ax = b.left + b.width / 2; ay = b.top + b.height / 2; }
+  const fx = (ax - r.left) / r.width, fy = (ay - r.top) / r.height;
+  state.zoom = z; applyZoom();
+  if (z === 1){ box.scrollLeft = box.scrollTop = 0; return; }
+  const r2 = wrap.getBoundingClientRect();
+  box.scrollLeft += r2.left + fx * r2.width - ax; box.scrollTop += r2.top + fy * r2.height - ay;
+}
 function goSlide(i){
   const p = cur(); if (!p) return;
   if (single(p)) i = 0;
@@ -2055,6 +2103,20 @@ async function nameGuest(id){
   try { await state.db.collection("presets").doc("guests").set({names: GUEST_NAMES, updatedAt: Date.now()}); }
   catch(e){ toast("Only designers can name photos. The name shows here until you reload."); }
 }
+// Deleting removes the photo from the studio for everyone (designers and admins). Slides that still
+// use it lose it, so the confirmation says where it is used.
+function canDeletePhotos(){ return !!(state.assets && state.assets.remove) && (!window.KH || ["admin", "designer"].includes(KH.role)); }
+async function deletePhoto(id){
+  const uses = [];
+  state.posts.forEach(p => { const n = (p.slides || []).filter(s => [s.img, s.img2, s.bgImg].some(r => r && r.id === id)).length + (p.bgImg && p.bgImg.id === id ? 1 : 0); if (n) uses.push(`${p.title} (${n})`); });
+  const where = uses.length ? `It is used in ${uses.length} post${uses.length > 1 ? "s" : ""}: ${uses.slice(0, 4).join(", ")}${uses.length > 4 ? "…" : ""}. Those slides will lose this photo.` : "It isn't used on any slide.";
+  if (!confirm(`Delete this photo from the gallery for everyone? ${where} This can't be undone.`)) return;
+  try { await state.assets.remove(id); }
+  catch(e){ toast("Couldn't delete the photo. Only designers and admins can delete photos."); return; }
+  const p = cur(); if (p){ const i = p.photos.findIndex(r => r && r.id === id); if (i >= 0){ p.photos.splice(i, 1); touch(p.id); renderInspector(); } }
+  toast(uses.length ? "Photo deleted. Slides that used it are now empty." : "Photo deleted.");
+  renderGallery();
+}
 // after a photo is put on a slide: fill the guest chip with the photo's guest
 function autoChip(p, s, ref){
   if (!CHIP_AUTO || !s || !ref || !ref.id || p.format === "reel") return;
@@ -2067,7 +2129,9 @@ function autoChip(p, s, ref){
 function galleryPhotos(){
   const seen = new Set(), out = [];
   const add = r => { if (!r || !r.id || seen.has(r.id)) return; seen.add(r.id); out.push({id: r.id}); };
-  (window.KH && KH.photos ? KH.photos() : []).forEach(add);
+  const store = window.KH && KH.photos ? KH.photos() : [];
+  store.forEach(add);
+  if (store.length) return out;   // the website lists every photo in the studio; deleted ones must not come back from old posts
   [...state.posts.values()].sort((a, b) => (b.date || "").localeCompare(a.date || "")).forEach(p => { (p.photos || []).forEach(add); (p.slides || []).forEach(x => { add(x.img); add(x.img2); }); });
   return out;
 }
@@ -2107,7 +2171,8 @@ function renderGallery(){
     <p class="gal-hint">${pickMany ? "Click photos to add them to this post, or click again to take them out." : "Click a photo to use it. Every photo uploaded in this studio is here, for carousels, reel covers and quote cards."}</p>
     ${list.length ? `<div class="gal-grid">${list.map((r, i) => { const g = guestFor(r.id, known); return `<div class="gal-cell">
         <button type="button" class="gal-pick${(pickMany ? inPost.has(r.id) : on === r.id) ? " on" : ""}" data-gal-i="${i}" title="${g ? esc(g.name) + (g.title ? " · " + esc(g.title) : "") : "No name yet"}" aria-label="Photo ${i+1}${g ? ", " + esc(g.name) : ""}${inPost.has(r.id) ? ", in this post" : ""}"><img alt="" data-gal-img="${i}">${inPost.has(r.id) ? `<span class="gal-tag">In this post</span>` : ""}${g ? `<span class="gal-name">${esc(g.name)}</span>` : ""}</button>
-        <button type="button" class="gal-edit" data-gal-name="${i}">${g ? "Edit name" : "+ Name"}</button></div>`; }).join("")}</div>`
+        <button type="button" class="gal-edit" data-gal-name="${i}">${g ? "Edit name" : "+ Name"}</button>
+        ${canDeletePhotos() ? `<button type="button" class="gal-del" data-gal-del="${i}" title="Delete this photo from the gallery" aria-label="Delete photo ${i+1}">Delete</button>` : ""}</div>`; }).join("")}</div>`
       : `<p class="gal-empty">No photos yet. Upload some and they'll be here for every post.</p>`}`;
   const grid = d.querySelector(".gal-grid"); if (!grid) return;
   grid.scrollTop = scroll;
@@ -2126,6 +2191,8 @@ function wireGallery(){
   d.addEventListener("click", e => {
     if (e.target === d){ d.close(); return; }   // click on the backdrop
     if (e.target.closest("[data-gal=close]")){ d.close(); return; }
+    const db = e.target.closest("[data-gal-del]");
+    if (db){ const r = galleryPhotos()[+db.dataset.galDel]; if (r) deletePhoto(r.id); return; }
     const nb = e.target.closest("[data-gal-name]");
     if (nb){ const r = galleryPhotos()[+nb.dataset.galName]; if (r) nameGuest(r.id); return; }
     const b = e.target.closest("[data-gal-i]"), p = cur(); if (!b || !p) return;
@@ -2252,7 +2319,7 @@ const COLS_KEY = "studio.cols.v1", MIN_SLIDE = 300;
 const COL = {
   l: {v:"--lw", lim:[170, 440], host: () => $(".work")},
   r: {v:"--rw", lim:[280, 600], host: () => $(".work")},
-  s: {v:"--sw", lim:[90, 320],  host: () => $("#stage")}
+  s: {v:"--sw", lim:[90, 460],  host: () => $("#stage")}
 };
 let cols = {}; try { cols = JSON.parse(localStorage.getItem(COLS_KEY) || "{}") || {}; } catch(e){ cols = {}; }
 const saveCols = () => { try { localStorage.setItem(COLS_KEY, JSON.stringify(cols)); } catch(e){ /* per-browser convenience only */ } };
@@ -2324,6 +2391,13 @@ function wire(){
     const th = e.target.closest(".thumb"); if (th) return goSlide(+th.dataset.i);
     if (e.target.closest("#prevSlide")) return goSlide(state.slideIdx - 1);
     if (e.target.closest("#nextSlide")) return goSlide(state.slideIdx + 1);
+    if (e.target.closest("#zoomIn")) return setZoom(state.zoom * 1.25);
+    if (e.target.closest("#zoomOut")) return setZoom(state.zoom / 1.25);
+    if (e.target.closest("#zoomFit")) return setZoom(1);
+    if (e.target.closest("#compactBtn")){
+      state.compact = !state.compact; try { localStorage.setItem("kh.compactHead", state.compact ? "1" : "0"); } catch(err){ /* this visit only */ }
+      renderStage(); return;
+    }
     if (e.target.closest("#addSlideBtn")){
       const layout = $("#addLayout").value;
       const s = S({layout, headline: layout === "cta" ? DAYS[p.day].cta : layout === "split" ? "Top text" : "New slide text", text2: layout === "split" ? "Bottom text" : "", tag: layout === "step" ? "Step" : "", num: layout === "step" ? String(p.slides.filter(x => x.layout === "step").length + 1) : ""});
@@ -2561,9 +2635,19 @@ function wire(){
   insp.addEventListener("dragleave", e => { const d = e.target.closest("[data-drop]"); if (d) d.classList.remove("over"); });
   insp.addEventListener("drop", e => { const d = e.target.closest("[data-drop]"); if (!d) return; e.preventDefault(); d.classList.remove("over"); addFiles(e.dataTransfer.files, d.dataset.drop); });
 
+  // pinch on a trackpad, or Ctrl/⌘ + scroll, zooms the slide
+  stage.addEventListener("wheel", e => {
+    if (!(e.ctrlKey || e.metaKey) || !e.target.closest(".stagebox")) return;
+    e.preventDefault(); setZoom(state.zoom * Math.exp(-clamp(e.deltaY, -50, 50) * .006), e.clientX, e.clientY);
+  }, {passive: false});
   document.addEventListener("keydown", e => {
-    if (e.target.closest("input,textarea,select,[contenteditable],.col-handle")) return;
+    if (!e.target.closest || e.target.closest("input,textarea,select,[contenteditable],.col-handle")) return;
     const mod = e.metaKey || e.ctrlKey;
+    if (!mod && !e.altKey && cur()){
+      if (e.key === "+" || e.key === "="){ e.preventDefault(); setZoom(state.zoom * 1.25); return; }
+      if (e.key === "-"){ e.preventDefault(); setZoom(state.zoom / 1.25); return; }
+      if (e.key === "0"){ e.preventDefault(); setZoom(1); return; }
+    }
     if (mod && (e.key === "z" || e.key === "Z")){ e.preventDefault(); undoRedo(e.shiftKey ? 1 : -1); return; }
     if (mod && (e.key === "y" || e.key === "Y")){ e.preventDefault(); undoRedo(1); return; }
     if (e.key === "ArrowLeft") goSlide(state.slideIdx - 1);
