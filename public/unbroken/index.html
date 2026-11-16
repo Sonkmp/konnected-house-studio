@@ -214,12 +214,17 @@ input[type=color]{width:34px;height:30px;border:1px solid var(--line-2);border-r
 .gal-head .sp{flex:1}
 .gal-hint{margin:0;padding:10px 18px 0;color:var(--muted);font-size:13px}
 .gal-grid{display:grid;grid-template-columns:repeat(auto-fill, minmax(132px, 1fr));gap:10px;padding:14px 18px 18px;overflow-y:auto}
-.gal-grid button{position:relative;padding:0;border:1px solid var(--line-2);border-radius:10px;overflow:hidden;background:var(--field);aspect-ratio:3/4}
-.gal-grid button:hover{border-color:var(--brand)}
-.gal-grid button.on{border-color:var(--brand);box-shadow:0 0 0 2px var(--brand)}
+.gal-cell{position:relative}
+.gal-pick{position:relative;display:block;width:100%;padding:0;border:1px solid var(--line-2);border-radius:10px;overflow:hidden;background:var(--field);aspect-ratio:3/4}
+.gal-pick:hover{border-color:var(--brand)}
+.gal-pick.on{border-color:var(--brand);box-shadow:0 0 0 2px var(--brand)}
+.gal-name{position:absolute;left:0;right:0;bottom:0;padding:22px 8px 7px;background:linear-gradient(transparent, rgba(0,0,0,.82));color:#fff;font-size:12px;font-weight:700;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gal-edit{position:absolute;top:6px;right:6px;padding:3px 8px;border:0;border-radius:99px;background:rgba(0,0,0,.72);color:#fff;font-size:11px;font-weight:700;opacity:0;transition:opacity .15s}
+.gal-cell:hover .gal-edit, .gal-edit:focus-visible{opacity:1}
+.gal-auto{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted)}
 .gal-grid img{width:100%;height:100%;object-fit:cover;display:block;opacity:0;transition:opacity .2s}
 .gal-grid img.ld{opacity:1}
-.gal-tag{position:absolute;left:6px;bottom:6px;padding:2px 7px;border-radius:99px;background:rgba(0,0,0,.72);color:#fff;font-size:11px;font-weight:600}
+.gal-tag{position:absolute;left:6px;top:6px;padding:2px 7px;border-radius:99px;background:rgba(0,0,0,.72);color:#fff;font-size:11px;font-weight:600}
 .gal-empty{padding:40px 18px;text-align:center;color:var(--muted)}
 .sl{display:grid;grid-template-columns:62px minmax(0,1fr) 42px;gap:8px;align-items:center;font-size:12px;color:var(--muted);font-weight:600}
 .sl output{font-variant-numeric:tabular-nums;text-align:right;color:var(--fg);font-size:11.5px}
@@ -1566,7 +1571,7 @@ function slider(label, key, val, min, max, step){
 }
 function picker(p, s, slot, label){
   const ref = s[slot], src = srcOf(ref), sfx = slot === "img2" ? "2" : "";
-  const lib = p.photos.length ? `<div class="lib">${p.photos.map((r, i) => `<button type="button" data-act="use-photo" data-slot="${slot}" data-i="${i}" class="${ref && ((r.id && r.id === ref.id) || (r.src && r.src === ref.src)) ? "on" : ""}" aria-label="Use photo ${i+1}"><img src="${esc(srcOf(r))}" alt=""></button>`).join("")}</div>` : "";
+  const lib = p.photos.length ? `<div class="lib">${p.photos.map((r, i) => `<button type="button" data-act="use-photo" data-slot="${slot}" data-i="${i}" class="${ref && ((r.id && r.id === ref.id) || (r.src && r.src === ref.src)) ? "on" : ""}" aria-label="Use photo ${i+1}" title="${esc((guestFor(r.id) || {}).name || "")}"><img src="${esc(srcOf(r))}" alt=""></button>`).join("")}</div>` : "";
   return `<div class="picker">
     <div class="pk-head"><span>${label}</span></div>
     <label class="drop${src ? " has" : ""}" data-drop="${slot}">${src ? `<img src="${esc(src)}" alt="">` : `<span>No photo on this slide.<br>Drop one here or <u>browse</u></span>`}<input type="file" accept="image/*" multiple data-file="${slot}" hidden></label>
@@ -2013,11 +2018,55 @@ function onPostLabel(el){ const p = cur(); if (!p) return; p.label = el.value; r
    it to the post's photos and puts it where the Gallery button was pressed (slot). */
 let galSlot = null, galObs = null;
 const refKey = r => (r && (r.id || r.src)) || "";
+/* ---------- guest names on photos ----------
+   A photo learns its guest's name from the slides it is used on (the guest chip next to it). A name
+   typed in the gallery wins; it is kept for the whole studio in presets/guests. Copies of the same
+   file (same file name) share the name. Picking a named photo fills the slide's guest chip, unless
+   "Put the guest's name on the slide" is switched off in the gallery. */
+let GUEST_NAMES = {};   // photo id -> {name, title}; name "" = forget the learned name
+let CHIP_AUTO = (() => { try { return localStorage.getItem("kh.chipAuto") !== "off"; } catch(e){ return true; } })();
+function knownGuests(){
+  const byId = {};
+  [...state.posts.values()].sort((a, b) => (a.date || "").localeCompare(b.date || "")).forEach(p => (p.slides || []).forEach(s => {
+    if (!hasChip(s)) return;
+    const ref = s.layout === "split" ? s.img2 : s.img;
+    if (ref && ref.id) byId[ref.id] = {name: s.chip.name.trim(), title: String(s.chip.title || "").trim()};
+  }));
+  Object.entries(GUEST_NAMES).forEach(([id, g]) => { if (g && g.name) byId[id] = g; else delete byId[id]; });
+  return byId;
+}
+function guestFor(id, known){
+  if (!id) return null; known = known || knownGuests();
+  if (known[id]) return known[id];
+  if (GUEST_NAMES[id] && !GUEST_NAMES[id].name) return null;   // cleared on purpose
+  const ph = window.KH && KH.photos ? KH.photos() : [], me = ph.find(x => x.id === id);
+  if (me && me.name){ const twin = ph.find(x => x.id !== id && x.name === me.name && known[x.id]); if (twin) return known[twin.id]; }
+  return null;
+}
+async function nameGuest(id){
+  const g = guestFor(id);
+  const v = prompt("Guest's name on this photo (as it should appear on the slide). Leave it empty to remove it.", g ? g.name : "");
+  if (v === null) return;
+  GUEST_NAMES[id] = {name: v.trim(), title: v.trim() && g && g.name === v.trim() ? g.title : ""};
+  renderGallery(); renderList();
+  if (state.mode !== "db" || !state.db) return;
+  try { await state.db.collection("presets").doc("guests").set({names: GUEST_NAMES, updatedAt: Date.now()}); }
+  catch(e){ toast("Only designers can name photos. The name shows here until you reload."); }
+}
+// after a photo is put on a slide: fill the guest chip with the photo's guest
+function autoChip(p, s, ref){
+  if (!CHIP_AUTO || !s || !ref || !ref.id || p.format === "reel") return;
+  const chipRef = s.layout === "split" ? s.img2 : s.img; if (chipRef !== ref) return;
+  const g = guestFor(ref.id); if (!g || !g.name) return;
+  const old = String(s.chip && s.chip.name || "").trim(); if (old === g.name) return;
+  s.chip = {name: g.name, title: g.title || ""};
+  toast(old ? `Guest chip changed from ${old} to ${g.name}. Undo to keep ${old}.` : `Guest chip set to ${g.name}.`);
+}
 function galleryPhotos(){
   const seen = new Set(), out = [];
   const add = r => { if (!r || !r.id || seen.has(r.id)) return; seen.add(r.id); out.push({id: r.id}); };
   (window.KH && KH.photos ? KH.photos() : []).forEach(add);
-  [...state.posts.values()].sort((a, b) => (b.date || "").localeCompare(a.date || "")).forEach(p => (p.photos || []).forEach(add));
+  [...state.posts.values()].sort((a, b) => (b.date || "").localeCompare(a.date || "")).forEach(p => { (p.photos || []).forEach(add); (p.slides || []).forEach(x => { add(x.img); add(x.img2); }); });
   return out;
 }
 function galleryUrl(r){ return window.KH && KH.assetReady && r.id ? KH.assetReady(r.id) : Promise.resolve(srcOf(r) || ""); }
@@ -2044,16 +2093,19 @@ function openGallery(slot){
 }
 function renderGallery(){
   const d = $("#gallery"), p = cur(); if (!d || !p || galSlot === null) return;
-  const list = galleryPhotos(), inPost = new Set(p.photos.map(refKey)), on = refKey(slotRef(p, galSlot));
+  const list = galleryPhotos(), inPost = new Set(p.photos.map(refKey)), on = refKey(slotRef(p, galSlot)), known = knownGuests();
   const pickMany = galSlot === "lib";
   const scroll = d.querySelector(".gal-grid")?.scrollTop || 0;
   d.innerHTML = `<div class="gal-head">
       <h2 id="galTitle">Photo gallery</h2><span class="help">${list.length} photo${list.length === 1 ? "" : "s"}</span><span class="sp"></span>
+      ${pickMany || p.format === "reel" ? "" : `<label class="gal-auto"><input type="checkbox" data-gal-auto ${CHIP_AUTO ? "checked" : ""}> Put the guest's name on the slide</label>`}
       <label class="btn sm">Upload photos<input type="file" accept="image/*" multiple data-gal-file hidden></label>
       <button type="button" class="btn sm primary" data-gal="close">Done</button>
     </div>
     <p class="gal-hint">${pickMany ? "Click photos to add them to this post, or click again to take them out." : "Click a photo to use it. Every photo uploaded in this studio is here, for carousels, reel covers and quote cards."}</p>
-    ${list.length ? `<div class="gal-grid">${list.map((r, i) => `<button type="button" data-gal-i="${i}" class="${(pickMany ? inPost.has(r.id) : on === r.id) ? "on" : ""}" aria-label="Photo ${i+1}${inPost.has(r.id) ? ", in this post" : ""}"><img alt="" data-gal-img="${i}">${inPost.has(r.id) ? `<span class="gal-tag">In this post</span>` : ""}</button>`).join("")}</div>`
+    ${list.length ? `<div class="gal-grid">${list.map((r, i) => { const g = guestFor(r.id, known); return `<div class="gal-cell">
+        <button type="button" class="gal-pick${(pickMany ? inPost.has(r.id) : on === r.id) ? " on" : ""}" data-gal-i="${i}" title="${g ? esc(g.name) + (g.title ? " · " + esc(g.title) : "") : "No name yet"}" aria-label="Photo ${i+1}${g ? ", " + esc(g.name) : ""}${inPost.has(r.id) ? ", in this post" : ""}"><img alt="" data-gal-img="${i}">${inPost.has(r.id) ? `<span class="gal-tag">In this post</span>` : ""}${g ? `<span class="gal-name">${esc(g.name)}</span>` : ""}</button>
+        <button type="button" class="gal-edit" data-gal-name="${i}">${g ? "Edit name" : "+ Name"}</button></div>`; }).join("")}</div>`
       : `<p class="gal-empty">No photos yet. Upload some and they'll be here for every post.</p>`}`;
   const grid = d.querySelector(".gal-grid"); if (!grid) return;
   grid.scrollTop = scroll;
@@ -2072,6 +2124,8 @@ function wireGallery(){
   d.addEventListener("click", e => {
     if (e.target === d){ d.close(); return; }   // click on the backdrop
     if (e.target.closest("[data-gal=close]")){ d.close(); return; }
+    const nb = e.target.closest("[data-gal-name]");
+    if (nb){ const r = galleryPhotos()[+nb.dataset.galName]; if (r) nameGuest(r.id); return; }
     const b = e.target.closest("[data-gal-i]"), p = cur(); if (!b || !p) return;
     const r = galleryPhotos()[+b.dataset.galI]; if (!r) return;
     let ref = p.photos.find(x => refKey(x) === r.id);
@@ -2080,11 +2134,13 @@ function wireGallery(){
       renderGallery(); renderInspector(); touch(p.id); return;
     }
     if (!ref){ ref = {id: r.id}; p.photos.push(ref); }
-    placePhoto(p, galSlot, ref); d.close();
+    placePhoto(p, galSlot, ref); autoChip(p, curSlide(), ref); d.close();
     renderInspector(); renderStage(); touch(p.id);
   });
   d.addEventListener("change", e => {
-    const el = e.target; if (!el.matches("[data-gal-file]")) return;
+    const el = e.target;
+    if (el.matches("[data-gal-auto]")){ CHIP_AUTO = el.checked; try { localStorage.setItem("kh.chipAuto", CHIP_AUTO ? "on" : "off"); } catch(err){ /* remembered for this visit only */ } return; }
+    if (!el.matches("[data-gal-file]")) return;
     const slot = galSlot; d.close(); addFiles(el.files, slot || "lib"); el.value = "";
   });
 }
@@ -2472,7 +2528,7 @@ function wire(){
     if (act === "wrap"){ const ta = document.getElementById(a.dataset.target); if (ta && !wrapSel(ta, a.dataset.m)) toast("Click inside a word, or select some words first."); return; }
     if (act === "box-color"){ s.boxColor = a.dataset.c || null; renderInspector(); scheduleRender(true); touch(p.id); return; }
     if (act === "reset-type"){ Object.assign(s, {scale:1, lh:1, track:0}); renderInspector(); scheduleRender(true); touch(p.id); return; }
-    if (act === "use-photo"){ s[a.dataset.slot] = p.photos[+a.dataset.i]; renderInspector(); renderStage(); touch(p.id); }
+    if (act === "use-photo"){ s[a.dataset.slot] = p.photos[+a.dataset.i]; autoChip(p, s, s[a.dataset.slot]); renderInspector(); renderStage(); touch(p.id); }
     else if (act === "clear-img"){ s[a.dataset.slot] = null; renderInspector(); renderStage(); touch(p.id); }
     else if (act === "dup"){ const c = normSlide(clone(Object.assign({}, s, {img: s.img && {...s.img}, img2: s.img2 && {...s.img2}}))); c.id = uid(); p.slides.splice(state.slideIdx + 1, 0, c); state.slideIdx++; renderStage(); renderInspector(); touch(p.id); }
     else if (act === "left" || act === "right"){
@@ -2557,7 +2613,8 @@ async function init(){
   let first = true;
   const timer = setTimeout(() => { state.stale = true; renderSave(); if (first) renderStage(); }, 10000);
   db.collection("presets").onSnapshot(snap => {
-    state.presets = {}; snap.docs.forEach(d => { const v = d.data(); if (v && v.look) state.presets[d.id] = v.look; });
+    state.presets = {}; snap.docs.forEach(d => { const v = d.data(); if (d.id === "guests") GUEST_NAMES = (v && v.names) || {}; else if (v && v.look) state.presets[d.id] = v.look; });
+    if (window.__khGalleryChanged) window.__khGalleryChanged();
     if (state.tab === "slide" && !(document.activeElement && document.activeElement.closest && document.activeElement.closest("#insp"))) renderInspector();
   }, () => {});
   db.collection("posts").onSnapshot(snap => {
