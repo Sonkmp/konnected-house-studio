@@ -688,7 +688,7 @@ function drawBase(ctx, t, x=0, y=0, w=W, h=H){
   ctx.fillStyle = g2; ctx.fillRect(x, y, w, h);
 }
 /* ---------- photo retouch ----------
-   Sharpness (0..1), Light, Contrast, Colour, Warmth (-1..1) and Shadows (0..1). The photo is
+   Sharpness (0..1), Light, Contrast, Saturation, Warmth (-1..1) and Shadows (0..1). The photo is
    processed at the exact size it is drawn (1080 px wide on export), so sharpening happens after
    any enlarging and the export is as crisp as the preview. Results are cached per photo + settings. */
 const rtOf = (s, which) => { const sfx = which === 2 ? "2" : "", r = {slot: which === 2 ? "img2" : "img", on: false}; RT_BASE.forEach(k => { r[k] = +s[k + sfx] || 0; if (r[k]) r.on = true; }); return r; };
@@ -751,7 +751,7 @@ function retouchUI(p, s, slot){
     ${slider("Light", "expo" + sfx, v("expo"), -1, 1, .01)}
     ${slider("Contrast", "contr" + sfx, v("contr"), -1, 1, .01)}
     ${slider("Shadows", "lift" + sfx, v("lift"), 0, 1, .01)}
-    ${slider("Colour", "sat" + sfx, v("sat"), -1, 1, .01)}
+    ${slider("Saturation", "sat" + sfx, v("sat"), -1, 1, .01)}
     ${slider("Warmth", "warm" + sfx, v("warm"), -1, 1, .01)}
     <div class="slide-actions">
       <button type="button" class="btn sm ghost" data-act="rt-reset" data-slot="${slot}">Reset retouch</button>
