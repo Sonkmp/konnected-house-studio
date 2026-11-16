@@ -73,12 +73,15 @@ function showHome(s) {
   const pref = (k, d) => { try { return localStorage.getItem("home." + k) || d; } catch (e) { return d; } };
   const keep = (k, v) => { try { localStorage.setItem("home." + k, v); } catch (e) { /* convenience only */ } };
   let upStudio = STUDIOS[pref("studio", "kmp")] ? pref("studio", "kmp") : "kmp", view = pref("view", "list") === "grid" ? "grid" : "list";
+  let fmt = ["all", "carousel", "quote", "reel"].includes(pref("fmt", "all")) ? pref("fmt", "all") : "all";
   $("#icList").innerHTML = ICONS.list; $("#icGrid").innerHTML = ICONS.grid;
   $("#upStudio").innerHTML = Object.values(STUDIOS).map(st => `<button type="button" role="tab" data-studio="${st.key}"><span class="sw" style="--c:${st.accent}"></span>${esc(st.show)}</button>`).join("");
   const syncCtrls = () => {
     document.querySelectorAll("#upStudio [data-studio]").forEach(b => b.setAttribute("aria-selected", String(b.dataset.studio === upStudio)));
     document.querySelectorAll("#upView [data-view]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.view === view)));
+    document.querySelectorAll("#upFmt [data-fmt]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.fmt === fmt)));
   };
+  $("#upFmt").addEventListener("click", e => { const b = e.target.closest("[data-fmt]"); if (!b) return; fmt = b.dataset.fmt; keep("fmt", fmt); syncCtrls(); render(); });
   $("#upStudio").addEventListener("click", e => { const b = e.target.closest("[data-studio]"); if (!b) return; upStudio = b.dataset.studio; keep("studio", upStudio); syncCtrls(); render(); });
   $("#upView").addEventListener("click", e => { const b = e.target.closest("[data-view]"); if (!b) return; view = b.dataset.view; keep("view", view); syncCtrls(); render(); });
   syncCtrls();
@@ -141,16 +144,19 @@ function showHome(s) {
   }
 
   function render() {
+    // within a day: carousels, then quote cards, then reel covers (older posts have no format: carousels)
+    const fmtOf = p => p.format || "carousel", ORDER = { carousel: 0, quote: 1, reel: 2 };
     const all = (posts[upStudio] || [])
-      .sort((a, b) => a.date.localeCompare(b.date) || String(a.format).localeCompare(String(b.format)));
+      .sort((a, b) => a.date.localeCompare(b.date) || (ORDER[fmtOf(a)] ?? 3) - (ORDER[fmtOf(b)] ?? 3) || String(a.title).localeCompare(String(b.title)));
     $("#stOpen").textContent = all.filter(p => p.status !== "posted").length;
     $("#stReady").textContent = all.filter(p => p.status === "ready").length;
     $("#stReel").textContent = all.filter(p => p.format === "reel").length;
     const note = $("#filterNote");
     note.hidden = !filter; if (filter) note.textContent = `Showing ${FILTERS[filter][0]} · tap the tile again for all`;
-    const shown = filter ? all.filter(FILTERS[filter][1]) : all;
+    const shown = (filter ? all.filter(FILTERS[filter][1]) : all).filter(p => fmt === "all" || fmtOf(p) === fmt);
     const kind = p => p.format === "reel" ? "Reel cover" : p.format === "quote" ? "Quote card" : `Carousel · ${(p.slides || []).length} slides`;
-    const empty = `<p class="empty">${filter ? `Nothing ${FILTERS[filter][0]} in the next 14 days.` : "Nothing scheduled in the next 14 days."}</p>`;
+    const fmtWord = { carousel: "carousels", quote: "quote cards", reel: "reel covers" }[fmt];
+    const empty = `<p class="empty">${filter ? `Nothing ${FILTERS[filter][0]}${fmtWord ? ` among the ${fmtWord}` : ""} in the next 14 days.` : `No ${fmtWord || "posts"} scheduled in the next 14 days.`}</p>`;
     $("#sched").classList.toggle("pgrid", view === "grid");
     if (view === "grid") {
       $("#sched").innerHTML = shown.map(p => {
@@ -167,7 +173,9 @@ function showHome(s) {
     $("#sched").innerHTML = shown.map(p => {
       const st = STUDIOS[p.studio];
       return `<div class="item">
-        <span class="dp${p.date === from ? " today" : ""}">${p.date === from ? "Today" : esc(dayPill(p.date))}</span>
+        ${can.edit(s.role, p)
+          ? `<label class="dp editable${p.date === from ? " today" : ""}" title="Change the date this goes out">${p.date === from ? "Today" : esc(dayPill(p.date))}<input type="date" class="dp-in" value="${esc(p.date)}" data-date="${esc(p.studio)}/${esc(p.id)}" aria-label="Date for ${esc(p.title || "this post")}"></label>`
+          : `<span class="dp${p.date === from ? " today" : ""}">${p.date === from ? "Today" : esc(dayPill(p.date))}</span>`}
         <span class="t"><span class="dot" style="--c:${(p.theme && p.theme.accent) || st.accent}"></span><span>
           <a href="${st.path}#post=${encodeURIComponent(p.id)}">${esc(p.title || "Untitled")}</a>
           <small>${esc(kind(p))}${p.label ? " · " + esc(p.label) : ""}</small></span></span>
@@ -177,6 +185,19 @@ function showHome(s) {
     }).join("") || empty;
   }
 
+  // change the date a post goes out, right from the list (the pillar and design stay as they are)
+  $("#sched").addEventListener("click", e => {
+    const inp = e.target.closest(".dp-in"); if (inp && inp.showPicker){ try { inp.showPicker(); } catch (err) { /* the browser opens it itself */ } }
+  });
+  $("#sched").addEventListener("change", async e => {
+    const inp = e.target.closest(".dp-in"); if (!inp || !inp.value) return;
+    const [studio, id] = inp.dataset.date.split("/"), when = inp.value;
+    inp.disabled = true;
+    try {
+      await updateDoc(doc(db, "studios", studio, "posts", id), { date: when, updatedAt: Date.now() });
+      if (when < from || when > to) alert(`Moved to ${dayPill(when)}. That's outside the next 14 days, so it leaves this list. Find it in the studio.`);
+    } catch (err) { inp.disabled = false; alert("Couldn't change the date. Only people who can edit this post can move it."); }
+  });
   $("#sched").addEventListener("click", async e => {
     const b = e.target.closest("[data-posted]"); if (!b) return;
     const [studio, id] = b.dataset.posted.split("/");
