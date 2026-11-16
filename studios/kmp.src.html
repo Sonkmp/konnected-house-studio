@@ -244,6 +244,11 @@ input[type=color]{width:34px;height:30px;border:1px solid var(--line-2);border-r
 .toggle{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--fg)}
 .toggle input{width:16px;height:16px;accent-color:var(--brand)}
 .slide-actions{display:flex;flex-wrap:wrap;gap:8px}
+.ov-item{display:flex;flex-direction:column;gap:8px;padding:10px;border:1px solid var(--line);border-radius:10px}
+.ov-item.on{border-color:var(--brand);box-shadow:0 0 0 1px var(--brand)}
+.ov-head{display:flex;align-items:center;gap:8px}
+.ov-head img{width:44px;height:30px;object-fit:cover;border-radius:5px;background:var(--field)}
+.ov-head b{flex:1;font-size:13px}
 .rt{display:flex;flex-direction:column;gap:8px;margin-top:6px;padding-top:12px;border-top:1px solid var(--line)}
 .rt-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .rt-head b{flex:1;font-size:13px}
@@ -1015,6 +1020,61 @@ function placeSection(p, s){
     </div>
   </section>`;
 }
+/* ---------- pictures on the slide ----------
+   slide.ov = [{img, x, y, w, r, sw, sc, sh, op, rot}]: a pasted screenshot or gallery photo laid over the
+   slide (a YouTube thumbnail on the last slide, say). x / y = centre as a share of the slide, w = width as
+   a share of 1080, r = corner radius, sw / sc = stroke width and colour, sh = shadow, op = opacity,
+   rot = degrees. They sit above the photo and text, under the label and logo, and can be dragged. */
+const OV_NEW = {x: .5, y: .5, w: .72, r: 24, sw: 0, sc: "#FFFFFF", sh: .35, op: 1, rot: 0};
+const newOverlay = ref => Object.assign({img: ref}, OV_NEW);
+function ovBox(o, img){
+  const w = clamp(+o.w || .72, .05, 1.6) * W, ar = img && img.naturalWidth ? img.naturalHeight / img.naturalWidth : 9 / 16, h = w * ar;
+  return {x: (o.x ?? .5) * W - w / 2, y: (o.y ?? .5) * H - h / 2, w, h};
+}
+function drawOverlays(ctx, p, s){
+  const preview = ctx.canvas && ctx.canvas.id === "preview";
+  (s.ov || []).forEach((o, i) => {
+    const img = getImg(o.img); if (!img || !img.naturalWidth) return;
+    const b = ovBox(o, img), r = clamp(+o.r || 0, 0, Math.min(b.w, b.h) / 2), sw = clamp(+o.sw || 0, 0, 40);
+    if (preview) HIT["ov:" + i] = b;
+    ctx.save();
+    ctx.globalAlpha = clamp(o.op ?? 1, .05, 1);
+    ctx.translate(b.x + b.w / 2, b.y + b.h / 2); ctx.rotate((+o.rot || 0) * Math.PI / 180); ctx.translate(-b.w / 2, -b.h / 2);
+    const sh = clamp(+o.sh || 0, 0, 1);
+    if (sh){ ctx.save(); ctx.shadowColor = `rgba(0,0,0,${.25 + .45 * sh})`; ctx.shadowBlur = 10 + 50 * sh; ctx.shadowOffsetY = 6 + 18 * sh;
+      rr(ctx, 0, 0, b.w, b.h, r); ctx.fillStyle = "#000"; ctx.fill(); ctx.restore(); }
+    ctx.save(); rr(ctx, 0, 0, b.w, b.h, r); ctx.clip();
+    ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high"; ctx.drawImage(img, 0, 0, b.w, b.h); ctx.restore();
+    if (sw){ ctx.lineWidth = sw; ctx.strokeStyle = o.sc || "#FFFFFF"; rr(ctx, sw / 2, sw / 2, b.w - sw, b.h - sw, Math.max(0, r - sw / 2)); ctx.stroke(); }
+    if (preview && state.ovSel === i){ ctx.globalAlpha = 1; ctx.setLineDash([14, 10]); ctx.lineWidth = 3; ctx.strokeStyle = "#27D9F2"; ctx.strokeRect(-8, -8, b.w + 16, b.h + 16); }
+    ctx.restore();
+  });
+}
+function ovSection(p, s){
+  const list = s.ov || [];
+  const sl = (i, f, label, v, min, max, step, unit) => `<label class="sl">${label}<input type="range" data-ov="${i}" data-f="${f}" min="${min}" max="${max}" step="${step}" value="${v}"><output>${ovFmt(f, +v)}</output></label>`;
+  const sw = (i, c, n) => `<button type="button" class="sw${(list[i].sc || "#FFFFFF").toUpperCase() === c ? " on" : ""}" style="--c:${c}" data-act="ov-color" data-i="${i}" data-c="${c}" aria-label="${n} stroke" title="${n}"></button>`;
+  return `<section class="grp"><h3>Pictures on this slide</h3>
+    <p class="help">Paste a screenshot onto the slide with <b>⌘V / Ctrl V</b> (a YouTube thumbnail, a post, a headline), or add one below. Drag it on the slide to move it.</p>
+    <div class="slide-actions">
+      <button type="button" class="btn sm" data-act="gallery" data-slot="ov">+ From the gallery</button>
+      <label class="btn sm ghost">Upload<input type="file" accept="image/*" multiple data-file="ov" hidden></label>
+    </div>
+    ${list.map((o, i) => `<div class="ov-item${state.ovSel === i ? " on" : ""}" data-ov-item="${i}">
+      <div class="ov-head">${srcOf(o.img) ? `<img src="${esc(srcOf(o.img))}" alt="">` : ""}<b>Picture ${i + 1}</b>
+        <button type="button" class="btn sm ghost" data-act="ov-center" data-i="${i}">Centre</button>
+        <button type="button" class="btn sm danger" data-act="ov-remove" data-i="${i}">Remove</button></div>
+      ${sl(i, "w", "Size", o.w ?? .72, .1, 1.2, .01)}
+      ${sl(i, "r", "Round corners", o.r ?? 0, 0, 120, 1)}
+      ${sl(i, "sw", "Stroke", o.sw ?? 0, 0, 30, 1)}
+      ${(o.sw || 0) > 0 ? `<div class="swatches"><span class="help">Stroke colour</span>${sw(i, "#FFFFFF", "White")}${sw(i, "#000000", "Black")}${BRAND.map(b => sw(i, b.c, b.n)).join("")}<input type="color" data-ov="${i}" data-f="sc" value="${esc(o.sc || "#FFFFFF")}" aria-label="Custom stroke colour"></div>` : ""}
+      ${sl(i, "sh", "Shadow", o.sh ?? 0, 0, 1, .01)}
+      ${sl(i, "op", "Opacity", o.op ?? 1, .1, 1, .01)}
+      ${sl(i, "rot", "Rotate", o.rot ?? 0, -20, 20, .5)}
+    </div>`).join("")}
+  </section>`;
+}
+function ovFmt(f, v){ return f === "r" || f === "sw" ? `${Math.round(v)}px` : f === "rot" ? `${v}°` : `${Math.round(v * 100)}%`; }
 function drawSlide(ctx, p, s, i, n){
   TXT = null; if (ctx.canvas && ctx.canvas.id === "preview") HIT = {};
   H = postH(p); IS_REEL = p.format === "reel";
@@ -1035,6 +1095,7 @@ function drawSlide(ctx, p, s, i, n){
   TXT = {s, key: "text"};
   ({split:drawSplitLayout, step:drawStepLayout, cta:drawCtaLayout}[s.layout] || drawPhotoLayout)(ctx, p, s, t);
   shadowOn(ctx, false);
+  drawOverlays(ctx, p, s);
   khPush(ctx, s, "label", labelBox(ctx, p, s, t));
   const badgeTop = s.badge && s.badgePos === "top-left" && s.layout !== "cta" && s.layout !== "split";
   if (badgeTop){ const f = s.badgeColor || t.accent; drawPill(ctx, s.badge.toUpperCase(), M, Math.max(56, M - 30) + TOP_NUDGE, {fill:f, color:inkFor(f), size:24, h:56, padX:24, sp:3}); }
@@ -1662,6 +1723,7 @@ function inspSlide(){
       ${s.reelLabel && s.badge && s.badgePos === "top-left" ? `<p class="help">The top-left badge is using the label's spot. Move the badge above the text to show both.</p>` : ""}
       <label class="toggle"><input type="checkbox" data-k="showLogo" ${s.showLogo !== false ? "checked" : ""}> Show the logo (top right)</label>
     </section>`);
+    parts.push(ovSection(p, s));
     parts.push(placeSection(p, s));
     return parts.join("");
   }
@@ -1683,6 +1745,7 @@ function inspSlide(){
       <button type="button" class="btn sm danger" data-act="del-slide">${state.confirm === "slide" ? "Click again to delete" : "Delete slide"}</button>
     </div>
   </section>`);
+  parts.push(ovSection(p, s));
   parts.push(placeSection(p, s));
   return parts.join("");
 }
@@ -1823,7 +1886,8 @@ function cleanPost(p){
   const fix = r => (r && r.id) ? {id: r.id} : null;
   o.photos = (o.photos || []).map(fix).filter(Boolean);
   o.bgImg = fix(o.bgImg);
-  o.slides.forEach(s => { s.img = fix(s.img); s.img2 = fix(s.img2); s.bgImg = fix(s.bgImg); });
+  o.slides.forEach(s => { s.img = fix(s.img); s.img2 = fix(s.img2); s.bgImg = fix(s.bgImg);
+    if (s.ov) s.ov = s.ov.map(v => Object.assign({}, v, {img: fix(v.img)})).filter(v => v.img); });
   return o;
 }
 async function flush(pid){
@@ -1876,6 +1940,7 @@ function setZoom(z, ax, ay){
   box.scrollLeft += r2.left + fx * r2.width - ax; box.scrollTop += r2.top + fy * r2.height - ay;
 }
 function goSlide(i){
+  state.ovSel = null;
   const p = cur(); if (!p) return;
   if (single(p)) i = 0;
   state.slideIdx = clamp(i, 0, p.slides.length - 1); state.confirm = null;
@@ -1988,6 +2053,7 @@ function galleryUrl(r){ return window.KH && KH.assetReady && r.id ? KH.assetRead
 function slotRef(p, slot){ const s = curSlide(); return slot === "lib" ? null : slot.startsWith("post:") ? p[slot.slice(5)] : s && s[slot]; }
 function placePhoto(p, slot, ref){
   const s = curSlide();
+  if (slot === "ov"){ if (s){ s.ov = s.ov || []; s.ov.push(newOverlay(ref)); state.ovSel = s.ov.length - 1; } return; }
   if (slot.startsWith("post:")) p[slot.slice(5)] = ref;
   else if (slot === "bgImg"){ if (s) s.bgImg = ref; }
   else if (slot !== "lib" && s){
@@ -2069,7 +2135,8 @@ async function addFiles(files, slot){
   const refs = imgs.map(f => ({src: URL.createObjectURL(f), _file: f}));
   refs.forEach(r => p.photos.push(r));
   const s = curSlide();
-  if (slot && slot.startsWith("post:")) p[slot.slice(5)] = refs[0];
+  if (slot === "ov"){ if (s){ s.ov = s.ov || []; refs.forEach(r => s.ov.push(newOverlay(r))); state.ovSel = s.ov.length - 1; } }
+  else if (slot && slot.startsWith("post:")) p[slot.slice(5)] = refs[0];
   else if (slot === "bgImg" && s) s.bgImg = refs[0];
   else if (slot && slot !== "lib" && s){
     s[slot] = refs[0]; s.textOnly = false;
@@ -2101,7 +2168,7 @@ async function addFiles(files, slot){
 
 /* ---------- export ---------- */
 async function renderToBlob(p, s, i){
-  await fontsReady; await Promise.all([loadImg(s.img), loadImg(s.img2), loadImg(s.bgImg), loadImg(p.bgImg)]);
+  await fontsReady; await Promise.all([loadImg(s.img), loadImg(s.img2), loadImg(s.bgImg), loadImg(p.bgImg), ...(s.ov || []).map(o => loadImg(o.img))]);
   const c = document.createElement("canvas"); c.width = W; c.height = postH(p);
   drawSlide(c.getContext("2d"), p, s, i, p.slides.length);
   return await new Promise((res, rej) => c.toBlob(b => b ? res(b) : rej(new Error("render")), "image/png"));
@@ -2269,12 +2336,21 @@ function wire(){
   const hitAt = (e, cv) => {
     const p = cur(); if (!p) return null; const r = cv.getBoundingClientRect();
     const x = (e.clientX - r.left) / r.width * W, y = (e.clientY - r.top) / r.height * postH(p);
-    for (const key of ["logo", "label", "text", "text2"]){ const b = HIT[key]; if (b && x >= b.x - 12 && x <= b.x + b.w + 12 && y >= b.y - 12 && y <= b.y + b.h + 12) return key; }
+    const ovKeys = Object.keys(HIT).filter(k => k.startsWith("ov:")).reverse();   // the top picture first
+    for (const key of ["logo", "label", ...ovKeys, "text", "text2"]){ const b = HIT[key]; if (b && x >= b.x - 12 && x <= b.x + b.w + 12 && y >= b.y - 12 && y <= b.y + b.h + 12) return key; }
     return null;
   };
   stage.addEventListener("pointerdown", e => {
     if (e.target.id !== "preview") return;
     const el = hitAt(e, e.target), s0 = curSlide();
+    if (state.ovSel != null && !(el && el.startsWith("ov:"))){ state.ovSel = null; scheduleRender(false); }   // clicking off a picture deselects it
+    if (el && el.startsWith("ov:") && s0 && s0.ov){
+      const i = +el.slice(3), o = s0.ov[i]; if (!o) return;
+      const r = e.target.getBoundingClientRect();
+      drag = {el, ov: o, x: e.clientX, y: e.clientY, w: r.width, h: r.height, ox: o.x ?? .5, oy: o.y ?? .5};
+      if (state.ovSel !== i){ state.ovSel = i; scheduleRender(false); }
+      e.target.setPointerCapture(e.pointerId); e.target.classList.add("dragging"); return;
+    }
     if (el && s0){
       drag = {el, x: e.clientX, y: e.clientY, sc: W / e.target.getBoundingClientRect().width, ox: +s0[el + "X"] || 0, oy: +s0[el + "Y"] || 0};
       e.target.setPointerCapture(e.pointerId); e.target.classList.add("dragging"); return;
@@ -2290,6 +2366,11 @@ function wire(){
   stage.addEventListener("pointermove", e => {
     if (!drag){ if (e.target.id === "preview") e.target.style.cursor = hitAt(e, e.target) ? "move" : ""; return; }
     const s = curSlide(); if (!s) return;
+    if (drag.ov){
+      drag.ov.x = clamp(drag.ox + (e.clientX - drag.x) / drag.w, -.2, 1.2);
+      drag.ov.y = clamp(drag.oy + (e.clientY - drag.y) / drag.h, -.2, 1.2);
+      scheduleRender(false); return;
+    }
     if (drag.el){
       s[drag.el + "X"] = Math.round(drag.ox + (e.clientX - drag.x) * drag.sc);
       s[drag.el + "Y"] = Math.round(drag.oy + (e.clientY - drag.y) * drag.sc);
@@ -2333,6 +2414,14 @@ function wire(){
   const insp = $("#insp");
   insp.addEventListener("input", e => {
     const el = e.target;
+    if (el.dataset.ov != null){
+      const p = cur(), s = curSlide(), o = s && s.ov && s.ov[+el.dataset.ov]; if (!o) return;
+      const f = el.dataset.f; o[f] = el.type === "color" ? el.value : parseFloat(el.value);
+      const out = el.parentElement.querySelector("output"); if (out && el.type === "range") out.textContent = ovFmt(f, +el.value);
+      state.ovSel = +el.dataset.ov; scheduleRender(true); touch(p.id);
+      if (f === "sw" && (o.sw > 0) !== !!el.closest(".ov-item").querySelector(".swatches")) renderInspector();   // show or hide the stroke colours
+      return;
+    }
     if (el.type === "range"){ const o = el.parentElement.querySelector("output"); if (o) o.textContent = fmtSlider(el.dataset.k, +el.value); }
     if (el.dataset.k && state.tab === "slide") return onSlideField(el);
     if (el.dataset.k === "label") return onPostLabel(el);
@@ -2387,6 +2476,13 @@ function wire(){
     const act = a.dataset.act;
     if (act !== "del-slide" && act !== "del-post") state.confirm = null;
     if (act === "gallery"){ openGallery(a.dataset.slot); return; }
+    if (act === "ov-remove" || act === "ov-center" || act === "ov-color"){
+      const i = +a.dataset.i, o = s && s.ov && s.ov[i]; if (!o) return;
+      if (act === "ov-remove"){ s.ov.splice(i, 1); state.ovSel = null; }
+      else if (act === "ov-center"){ o.x = .5; o.y = .5; state.ovSel = i; }
+      else { o.sc = a.dataset.c; state.ovSel = i; }
+      renderInspector(); scheduleRender(true); touch(p.id); return;
+    }
     if (act === "rt-auto" || act === "rt-reset"){
       const slot = a.dataset.slot, sfx = slot === "img2" ? "2" : "";
       const auto = {sharp: photoEnlarge(p, s, slot) > 1.15 ? .65 : .45, expo: .06, contr: .08, lift: .32, sat: .08, warm: 0};
@@ -2479,6 +2575,16 @@ function wire(){
   insp.addEventListener("dragleave", e => { const d = e.target.closest("[data-drop]"); if (d) d.classList.remove("over"); });
   insp.addEventListener("drop", e => { const d = e.target.closest("[data-drop]"); if (!d) return; e.preventDefault(); d.classList.remove("over"); addFiles(e.dataTransfer.files, d.dataset.drop); });
 
+  // paste a screenshot anywhere outside a text field: it lands on the current slide as a picture
+  document.addEventListener("paste", e => {
+    if (e.target.closest && e.target.closest("input,textarea,select,[contenteditable]")) return;
+    if ($("#gallery") && $("#gallery").open) return;
+    const p = cur(), s = curSlide(); if (!p || !s || p.format === "quote") return;
+    const files = [...(e.clipboardData && e.clipboardData.files || [])].filter(f => /^image\//.test(f.type));
+    if (!files.length) return;
+    e.preventDefault();
+    addFiles(files.map((f, k) => f.name && f.name !== "image.png" ? f : new File([f], `pasted-${Date.now()}${k ? "-" + k : ""}.png`, {type: f.type})), "ov");
+  });
   // pinch on a trackpad, or Ctrl/⌘ + scroll, zooms the slide
   stage.addEventListener("wheel", e => {
     if (!(e.ctrlKey || e.metaKey) || !e.target.closest(".stagebox")) return;
