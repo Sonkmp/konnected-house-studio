@@ -83,7 +83,6 @@ body.col-dragging *{cursor:col-resize!important}
 .dot{width:10px;height:10px;margin-top:4px;border-radius:50%;background:var(--c);box-shadow:0 0 0 3px color-mix(in srgb, var(--c) 18%, transparent)}
 .pi-main{display:flex;flex-direction:column;min-width:0}
 .pi-date{font-size:11.5px;color:var(--muted);font-weight:600;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.pi-guest{font-size:11.5px;color:var(--fg);opacity:.82;font-weight:600;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pi-title{font-weight:600;font-size:13px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .pi-meta{font-size:11px;color:var(--dim);font-variant-numeric:tabular-nums;white-space:nowrap}
 .chip-st{font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:99px;border:1px solid var(--line-2);color:var(--muted)}
@@ -117,7 +116,6 @@ input[type=color]{width:34px;height:30px;border:1px solid var(--line-2);border-r
 @media (max-width:1220px){.post-head{grid-template-columns:minmax(0,1fr)}}
 .title-input{font-size:20px!important;font-weight:700!important;background:transparent!important;border-color:transparent!important;padding:4px 6px!important}
 .title-input:hover{border-color:var(--line-2)!important}
-.guest-f{margin-top:10px}
 .meta-row{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr) minmax(0,1fr);gap:10px}
 @media (max-width:560px){.meta-row{grid-template-columns:1fr 1fr}.meta-row .f:first-child{grid-column:1 / -1}}
 .editor{display:grid;grid-template-columns:minmax(0,1fr) var(--sw);gap:14px;min-height:0;position:relative}
@@ -222,6 +220,10 @@ input[type=color]{width:34px;height:30px;border:1px solid var(--line-2);border-r
 .toggle{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--fg)}
 .toggle input{width:16px;height:16px;accent-color:var(--brand)}
 .slide-actions{display:flex;flex-wrap:wrap;gap:8px}
+.rt{display:flex;flex-direction:column;gap:8px;margin-top:6px;padding-top:12px;border-top:1px solid var(--line)}
+.rt-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.rt-head b{flex:1;font-size:13px}
+.rt-hint{margin:0;color:var(--warn)}
 label.btn{cursor:pointer}
 .fmt{display:flex;gap:6px;flex-wrap:wrap}
 .font-pick{display:grid;grid-template-columns:repeat(2, minmax(0,1fr))}
@@ -411,11 +413,8 @@ function S(o){
   }, o || {});
 }
 function normSlide(s){ const n = S(s); n.textOnly = false; if (n.handle === "@unbrokenpodcast") n.handle = "@the.unbroken_podcast"; n.chip = Object.assign({name:"",title:""}, s && s.chip || {}); return n; }
-/* who is in the post: the Guest field, or else the guest chips on its slides */
-function chipGuests(p){ return [...new Set((p.slides || []).map(s => s.chip && String(s.chip.name || "").trim()).filter(Boolean))].join(", "); }
-const guestOf = p => String(p.guest || "").trim() || chipGuests(p);
 function normPost(id, p){
-  const n = Object.assign({title:"Untitled post", format:"carousel", bgImg:null, bgDim:.55, date:"", day:"tue", status:"draft", label:"", guest:"", theme:{}, showCounter:false, caption:"", photos:[], slides:[]}, p);
+  const n = Object.assign({title:"Untitled post", format:"carousel", bgImg:null, bgDim:.55, date:"", day:"tue", status:"draft", label:"", theme:{}, showCounter:false, caption:"", photos:[], slides:[]}, p);
   n.id = id; n.theme = n.theme || {}; n.photos = (n.photos||[]).filter(r => r && (r.id || r.src));
   n.slides = (n.slides||[]).map(normSlide);
   return n;
@@ -426,7 +425,10 @@ const FRAME_KEYS = ["layout", "textOnly", "img", "fx", "fy", "zoom", "img2", "fx
 // the middle slides: everything but the cover (first slide or a cover hook) and the closing CTA
 const isMiddle = (p, x, j) => j > 0 && !x.isCover && x.layout !== "cta";
 // "Use this slide's look on every slide" copies the saved-look settings plus these
-const ALL_KEYS = [...LOOK_KEYS, "hideLabel", "chipPos", "bgImg", "bgDim", "topFade"];
+// photo retouch, per still: the bottom still of a two-stills slide uses the same names + "2"
+const RT_BASE = ["sharp", "expo", "contr", "lift", "sat", "warm"];
+const RT_KEYS = [...RT_BASE, ...RT_BASE.map(k => k + "2")];
+const ALL_KEYS = [...LOOK_KEYS, "hideLabel", "chipPos", "bgImg", "bgDim", "topFade", ...RT_KEYS];
 const PLACE_KEYS = ["logoX","logoY","logoK","labelX","labelY","labelK","textX","textY","text2X","text2Y"];
 const presetKey = p => single(p) ? p.format : p.day;
 const presetLabel = key => key === "reel" ? "reel covers" : key === "quote" ? "quote cards" : `${DAYS[key] ? DAYS[key].name : key} carousels`;
@@ -651,12 +653,91 @@ function drawBase(ctx, t, x=0, y=0, w=W, h=H){
   g2.addColorStop(0, hexA(mix(t.base, "#ffffff", .10), .9)); g2.addColorStop(1, hexA(t.base, 0));
   ctx.fillStyle = g2; ctx.fillRect(x, y, w, h);
 }
-function drawCover(ctx, img, x, y, w, h, fx, fy, zoom, bw){
+/* ---------- photo retouch ----------
+   Sharpness (0..1), Light, Contrast, Colour, Warmth (-1..1) and Shadows (0..1). The photo is
+   processed at the exact size it is drawn (1080 px wide on export), so sharpening happens after
+   any enlarging and the export is as crisp as the preview. Results are cached per photo + settings. */
+const rtOf = (s, which) => { const sfx = which === 2 ? "2" : "", r = {slot: which === 2 ? "img2" : "img", on: false}; RT_BASE.forEach(k => { r[k] = +s[k + sfx] || 0; if (r[k]) r.on = true; }); return r; };
+let RT_OFF = false, RT_FAST = false;   // "hold to compare"; plain photo while it is being dragged
+const RT_CACHE = new Map();
+function retouch(img, sx, sy, sw, sh, dw, dh, bw, r){
+  const key = [img.currentSrc || img.src, sx, sy, sw, sh, dw, dh, bw ? 1 : 0, RT_BASE.map(k => r[k]).join(",")].join("|");
+  if (RT_CACHE.has(key)){ const hit = RT_CACHE.get(key); RT_CACHE.delete(key); RT_CACHE.set(key, hit); return hit; }
+  const c = document.createElement("canvas"); c.width = dw; c.height = dh;
+  const x = c.getContext("2d", {willReadFrequently: true});
+  x.imageSmoothingEnabled = true; x.imageSmoothingQuality = "high";
+  x.drawImage(img, sx, sy, sw, sh, 0, 0, dw, dh);
+  const d = x.getImageData(0, 0, dw, dh), a = d.data, n = a.length;
+  // light and contrast share one lookup table
+  const gain = Math.pow(2, r.expo * .8), k = 1 + r.contr * .55, lut = new Uint8ClampedArray(256);
+  for (let v = 0; v < 256; v++) lut[v] = ((v / 255 * gain - .5) * k + .5) * 255;
+  const lift = r.lift * 2.4, sat = 1 + r.sat, warm = r.warm * 16;
+  for (let i = 0; i < n; i += 4){
+    let R = lut[a[i]], G = lut[a[i+1]], B = lut[a[i+2]], L = R*.299 + G*.587 + B*.114;
+    if (lift && L > 0){ const l = L / 255, f = 1 + lift * (1 - l) * (1 - l); R *= f; G *= f; B *= f; L *= f; }   // opens up the dark parts, leaves black black
+    if (sat !== 1){ R = L + (R - L) * sat; G = L + (G - L) * sat; B = L + (B - L) * sat; }
+    if (warm){ R += warm; B -= warm; }
+    if (bw){ R = G = B = (L - 128) * 1.06 + 128; }
+    a[i] = R; a[i+1] = G; a[i+2] = B;
+  }
+  if (r.sharp > 0){
+    // unsharp mask: blur with a small [1 2 1] kernel, then push each pixel away from the blur
+    const src = new Uint8ClampedArray(a), tmp = new Uint8ClampedArray(n), amt = r.sharp * 1.7, row = dw * 4;
+    for (let y = 0; y < dh; y++) for (let xx = 0; xx < dw; xx++){
+      const i = y*row + xx*4, l = xx ? i - 4 : i, rr = xx < dw - 1 ? i + 4 : i;
+      for (let ch = 0; ch < 3; ch++) tmp[i+ch] = (src[l+ch] + 2*src[i+ch] + src[rr+ch]) >> 2;
+    }
+    for (let y = 0; y < dh; y++){ const up = y ? -row : 0, dn = y < dh - 1 ? row : 0;
+      for (let xx = 0; xx < dw; xx++){ const i = y*row + xx*4;
+        for (let ch = 0; ch < 3; ch++){ const o = src[i+ch], bl = (tmp[i+up+ch] + 2*tmp[i+ch] + tmp[i+dn+ch]) >> 2, df = o - bl;
+          if (df > 2 || df < -2) a[i+ch] = o + df * amt; }
+      }
+    }
+  }
+  x.putImageData(d, 0, 0);
+  RT_CACHE.set(key, c); if (RT_CACHE.size > 10) RT_CACHE.delete(RT_CACHE.keys().next().value);
+  return c;
+}
+// how much a still is enlarged on the slide (1 = shown at its own size)
+function photoEnlarge(p, s, slot){
+  const img = getImg(s[slot]); if (!img || !img.naturalWidth) return 0;
+  const h = s.layout === "split" ? postH(p) / 2 : postH(p);
+  return Math.max(W / img.naturalWidth, h / img.naturalHeight) * (s[slot === "img2" ? "zoom2" : "zoom"] || 1);
+}
+function retouchUI(p, s, slot){
+  const sfx = slot === "img2" ? "2" : "", img = getImg(s[slot]), k = p.format === "quote" ? 0 : photoEnlarge(p, s, slot);
+  const hint = k > 1.15 ? `<p class="help rt-hint">This photo is ${img.naturalWidth}×${img.naturalHeight}, so it is enlarged ${k.toFixed(1)}× here and can look soft. Add Sharpness, zoom out a little, or use a frame from a higher-quality video (1440p or 4K).</p>` : "";
+  const v = key => s[key + sfx] || 0;
+  return `<div class="rt">
+    <div class="rt-head"><b>Retouch</b>
+      <button type="button" class="btn sm" data-act="rt-auto" data-slot="${slot}">Auto enhance</button>
+      <button type="button" class="btn sm ghost" data-rt-compare title="Hold to see the photo without retouching">Hold to compare</button></div>
+    ${hint}
+    ${slider("Sharpness", "sharp" + sfx, v("sharp"), 0, 1, .01)}
+    ${slider("Light", "expo" + sfx, v("expo"), -1, 1, .01)}
+    ${slider("Contrast", "contr" + sfx, v("contr"), -1, 1, .01)}
+    ${slider("Shadows", "lift" + sfx, v("lift"), 0, 1, .01)}
+    ${slider("Colour", "sat" + sfx, v("sat"), -1, 1, .01)}
+    ${slider("Warmth", "warm" + sfx, v("warm"), -1, 1, .01)}
+    <div class="slide-actions">
+      <button type="button" class="btn sm ghost" data-act="rt-reset" data-slot="${slot}">Reset retouch</button>
+      ${p.slides.length > 1 ? `<button type="button" class="btn sm" data-act="rt-all" data-slot="${slot}">Use on every slide</button>` : ""}
+    </div>
+  </div>`;
+}
+function drawCover(ctx, img, x, y, w, h, fx, fy, zoom, bw, r){
   const iw = img.naturalWidth, ih = img.naturalHeight; if (!iw || !ih) return;
   const sc = Math.max(w/iw, h/ih) * (zoom || 1);
   const sw = w/sc, sh = h/sc;
   const sx = clamp((iw - sw) * (fx ?? .5), 0, Math.max(0, iw - sw));
   const sy = clamp((ih - sh) * (fy ?? .5), 0, Math.max(0, ih - sh));
+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high";   // the browser default ("low") makes scaled photos jagged
+  if (r && r.on && !RT_OFF && !(RT_FAST && ctx.canvas && ctx.canvas.id === "preview")){
+    try {
+      const m = ctx.getTransform(), dw = Math.max(1, Math.round(w * Math.hypot(m.a, m.b))), dh = Math.max(1, Math.round(h * Math.hypot(m.c, m.d)));
+      ctx.drawImage(retouch(img, sx, sy, sw, sh, dw, dh, bw, r), x, y, w, h); return;
+    } catch(e){ /* a photo the page can't read back: draw it as it is */ }
+  }
   if (bw && FILTER_OK){ ctx.save(); ctx.filter = "grayscale(1) contrast(1.06)"; ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h); ctx.restore(); return; }
   ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
   if (bw){
@@ -825,7 +906,7 @@ function drawPhotoLayout(ctx, p, s, t){
   const img = s.textOnly ? null : getImg(s.img);
   drawBase(ctx, t);
   if (img){
-    drawCover(ctx, img, 0, 0, W, H, s.fx, s.fy, s.zoom, bwOf(p, s));
+    drawCover(ctx, img, 0, 0, W, H, s.fx, s.fy, s.zoom, bwOf(p, s), rtOf(s, 1));
     if (s.dim){ ctx.fillStyle = hexA(t.fade, clamp(+s.dim, 0, 1)); ctx.fillRect(0, 0, W, H); }
     const f = s.fade ?? 1, fh = clamp(s.fadeH ?? .64, .2, .8);
     const fromTop = s.textPos === "top";
@@ -862,7 +943,7 @@ function drawStepLayout(ctx, p, s, t){
   const img = s.textOnly ? null : getImg(s.img);
   drawBase(ctx, t);
   if (img){
-    ctx.save(); ctx.globalAlpha = .42; drawCover(ctx, img, 0, 0, W, H, s.fx, s.fy, s.zoom, bwOf(p, s)); ctx.restore();
+    ctx.save(); ctx.globalAlpha = .42; drawCover(ctx, img, 0, 0, W, H, s.fx, s.fy, s.zoom, bwOf(p, s), rtOf(s, 1)); ctx.restore();
     const f = s.fade ?? 1;
     const g = ctx.createLinearGradient(0, 0, 0, H); const boost = clamp(f - 1, 0, 1); g.addColorStop(0, hexA(t.fade, Math.min(.45, .30*f + .15*boost))); g.addColorStop(.55, hexA(t.fade, Math.min(1, .78*f))); g.addColorStop(1, hexA(t.fade, Math.min(1, .96*f)));
     ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
@@ -880,7 +961,7 @@ function drawStepLayout(ctx, p, s, t){
 function drawCtaLayout(ctx, p, s, t){
   const img = s.textOnly ? null : getImg(s.img);
   drawBase(ctx, t);
-  if (img){ drawCover(ctx, img, 0, 0, W, H, s.fx, s.fy, s.zoom, bwOf(p, s)); ctx.fillStyle = hexA(t.fade, Math.min(1, .84*(s.fade ?? 1))); ctx.fillRect(0, 0, W, H); }
+  if (img){ drawCover(ctx, img, 0, 0, W, H, s.fx, s.fy, s.zoom, bwOf(p, s), rtOf(s, 1)); ctx.fillStyle = hexA(t.fade, Math.min(1, .84*(s.fade ?? 1))); ctx.fillRect(0, 0, W, H); }
   const sc = s.scale || 1, items = [{k:"logo", h:150, gap:0}];
   if (s.headline) items.push(headItem(s, s.headline, 70*sc, 800, W - 2*M - 40, 96));
   if (s.sub) items.push({k:"rich", text:s.sub, size:30*sc, weight:500, maxW:W-2*M-80, lh:1.22*(s.lh||1), color:"rgba(255,255,255,.80)", gap:28});
@@ -896,7 +977,7 @@ function drawHalf(ctx, p, s, t, which){
   const sc = s.scale || 1;
   ctx.save(); ctx.beginPath(); ctx.rect(0, y0, W, hh); ctx.clip();
   if (img){
-    drawCover(ctx, img, 0, y0, W, hh, which === 1 ? s.fx : s.fx2, which === 1 ? s.fy : s.fy2, which === 1 ? s.zoom : s.zoom2, bwOf(p, s));
+    drawCover(ctx, img, 0, y0, W, hh, which === 1 ? s.fx : s.fx2, which === 1 ? s.fy : s.fy2, which === 1 ? s.zoom : s.zoom2, bwOf(p, s), rtOf(s, which));
     // the bottom still has its own fade, fade height and darken (fade2 / fadeH2 / dim2); unset, it follows the top
     const dm = which === 1 ? s.dim : s.dim2;
     if (dm){ ctx.fillStyle = hexA(t.fade, clamp(+dm, 0, 1)); ctx.fillRect(0, y0, W, hh); }
@@ -1060,7 +1141,7 @@ function drawQuoteCard(ctx, p, s, t){
   // photo
   const img = getImg(s.img);
   ctx.save(); quoteFrame(ctx, x0, y0, x1, y1, 56, notch); ctx.clip();
-  if (img) drawCover(ctx, img, x0, y0, x1 - x0, y1 - y0, s.fx, s.fy, s.zoom, bwOf(p, s));
+  if (img) drawCover(ctx, img, x0, y0, x1 - x0, y1 - y0, s.fx, s.fy, s.zoom, bwOf(p, s), rtOf(s, 1));
   else { ctx.fillStyle = T.empty; ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
     ctx.fillStyle = T.emptyInk; ctx.font = "600 30px Poppins, system-ui, sans-serif"; ctx.textAlign = "center"; ctx.fillText("Add a photo of the guest", W/2, (y0 + y1)/2); ctx.textAlign = "left"; }
   ctx.restore();
@@ -1221,7 +1302,7 @@ function drawQuoteKmp(ctx, p, s, t){
   ctx.save(); rr(ctx, x0, y0, x1 - x0, y1 - y0, 28); ctx.clip();
   // photo across the top of the card (and under the blob)
   const img = getImg(s.img);
-  if (img) drawCover(ctx, img, x0, y0, x1 - x0, pb - y0 + R, s.fx, s.fy, s.zoom, bwOf(p, s));
+  if (img) drawCover(ctx, img, x0, y0, x1 - x0, pb - y0 + R, s.fx, s.fy, s.zoom, bwOf(p, s), rtOf(s, 1));
   else { ctx.fillStyle = T.empty; ctx.fillRect(x0, y0, x1 - x0, pb - y0 + R);
     ctx.fillStyle = hexA("#FFFFFF", .6); ctx.font = "600 30px Poppins, system-ui, sans-serif"; ctx.textAlign = "center"; ctx.fillText("Add a photo of the guest", W/2, (y0 + pb)/2); ctx.textAlign = "left"; }
   // white panel whose top edge dips around the blob, with rounded shoulders
@@ -1374,7 +1455,7 @@ function renderList(){
     const t = themeOf(p);
     html += `<button class="post-item" data-id="${esc(p.id)}" aria-current="${p.id === state.currentId}">
       <span class="dot" style="--c:${esc(t.accent)}"></span>
-      <span class="pi-main"><span class="pi-title">${esc(p.title)}</span><span class="pi-date">${esc(fmtDate(p.date))} · ${esc(t.pillar)}</span>${guestOf(p) ? `<span class="pi-guest">${esc(guestOf(p))}</span>` : ""}</span>
+      <span class="pi-main"><span class="pi-title">${esc(p.title)}</span><span class="pi-date">${esc(fmtDate(p.date))} · ${esc(t.pillar)}</span></span>
       <span class="pi-meta">${p.format === "reel" ? `<span class="chip-st" data-s="reel">Reel</span> ` : ""}<span class="chip-st" data-s="${esc(p.status)}">${esc(STATUS[p.status] || "Draft")}</span></span>
     </button>`;
   }
@@ -1400,7 +1481,6 @@ function renderStage(){
         <label class="f">Date<input type="date" id="postDate" value="${esc(p.date)}" data-pk="date"></label>
         <label class="f">Status<select id="postStatus" data-pk="status">${Object.entries(STATUS).map(([k,v])=>`<option value="${k}"${k===p.status?" selected":""}>${v}</option>`).join("")}</select></label>
       </div>
-      <label class="f guest-f">Guest<input type="text" id="postGuest" value="${esc(p.guest || "")}" placeholder="${esc(chipGuests(p) || "Who is in this post, so you know whose photos to find")}" data-pk="guest" autocomplete="off"></label>
     </div>
     <div class="toolbar">
       <button class="btn ghost sm" id="undoBtn" title="Undo (Ctrl/⌘ Z)">Undo</button>
@@ -1474,7 +1554,7 @@ function picker(p, s, slot, label){
       ${src ? `<button type="button" class="btn sm danger" data-act="clear-img" data-slot="${slot}">Remove photo</button>` : ""}
     </div>
     ${lib ? `<span class="help">Or pick one already in this post:</span>${lib}` : ""}
-    ${src ? slider("Left–right", "fx" + sfx, s["fx" + sfx], 0, 1, .01) + slider("Up–down", "fy" + sfx, s["fy" + sfx], 0, 1, .01) + slider("Zoom", "zoom" + sfx, s["zoom" + sfx], 1, 2.5, .01) : ""}
+    ${src ? slider("Left–right", "fx" + sfx, s["fx" + sfx], 0, 1, .01) + slider("Up–down", "fy" + sfx, s["fy" + sfx], 0, 1, .01) + slider("Zoom", "zoom" + sfx, s["zoom" + sfx], 1, 2.5, .01) + retouchUI(p, s, slot) : ""}
   </div>`;
 }
 const FONT_PREVIEW = {sans:"font-family:Montserrat;font-weight:800", tall:"font-family:Anton", caps:"font-family:'Bebas Neue';font-size:15px", xtall:"font-family:'League Gothic';font-size:16px", cond:"font-family:Oswald;font-weight:700", heavy:"font-family:'Archivo Black'", round:"font-family:Poppins;font-weight:800", serif:"font-family:'Averia Serif Libre';font-style:italic;font-weight:700",
@@ -1851,7 +1931,7 @@ function onPostField(el){
   if (el.dataset.num) v = parseFloat(v);
   p[k] = v;
   if (k === "day"){ renderAll(); }
-  else if (k === "date" || k === "status" || k === "title" || k === "guest"){ renderList(); }
+  else if (k === "date" || k === "status" || k === "title"){ renderList(); }
   scheduleRender(true); touch(p.id);
 }
 function onPostLabel(el){ const p = cur(); if (!p) return; p.label = el.value; renderList(); scheduleRender(true); touch(p.id); }
@@ -2148,6 +2228,7 @@ function wire(){
       e.target.setPointerCapture(e.pointerId); e.target.classList.add("dragging"); return;
     }
     const s = curSlide(); if (!s || !hasPhoto(s)) return;
+    RT_FAST = true;
     const r = e.target.getBoundingClientRect();
     const which = s.layout === "split" && (e.clientY - r.top) / r.height > .5 ? "2" : "";
     if (!getImg(which ? s.img2 : s.img)) return;
@@ -2168,6 +2249,7 @@ function wire(){
     scheduleRender(false);
   });
   const end = e => {
+    RT_FAST = false;
     if (!drag) return; drag = null;
     const c = $("#preview"); if (c) c.classList.remove("dragging");
     const p = cur(); if (p){ scheduleRender(true); touch(p.id); if (state.tab === "slide") renderInspector(); }
@@ -2211,6 +2293,13 @@ function wire(){
     if (el.dataset.file){ addFiles(el.files, el.dataset.file); el.value = ""; return; }
     if (el.dataset.color) renderInspector();
   });
+  // "Hold to compare": the untouched photo shows while the button is held down
+  insp.addEventListener("pointerdown", e => {
+    if (!e.target.closest("[data-rt-compare]")) return;
+    RT_OFF = true; scheduleRender(false);
+    const off = () => { RT_OFF = false; scheduleRender(false); window.removeEventListener("pointerup", off); window.removeEventListener("pointercancel", off); };
+    window.addEventListener("pointerup", off); window.addEventListener("pointercancel", off);
+  });
   insp.addEventListener("click", async e => {
     const fb = e.target.closest("[data-fold]");
     if (fb){
@@ -2247,6 +2336,17 @@ function wire(){
     const act = a.dataset.act;
     if (act !== "del-slide" && act !== "del-post") state.confirm = null;
     if (act === "gallery"){ openGallery(a.dataset.slot); return; }
+    if (act === "rt-auto" || act === "rt-reset"){
+      const slot = a.dataset.slot, sfx = slot === "img2" ? "2" : "";
+      const auto = {sharp: photoEnlarge(p, s, slot) > 1.15 ? .65 : .45, expo: .06, contr: .08, lift: .32, sat: .08, warm: 0};
+      RT_BASE.forEach(k => { if (act === "rt-auto") s[k + sfx] = auto[k]; else delete s[k + sfx]; });
+      renderInspector(); scheduleRender(true); touch(p.id); return;
+    }
+    if (act === "rt-all"){
+      const sfx = a.dataset.slot === "img2" ? "2" : "";
+      p.slides.forEach(x => RT_BASE.forEach(k => { x[k] = s[k + sfx] ?? null; x[k + "2"] = s[k + sfx] ?? null; }));
+      renderStage(); renderInspector(); touch(p.id, true); toast("Retouch copied to every photo in this post."); return;
+    }
     if (act === "arrow-color"){ s.arrowColor = a.dataset.c === "#FFFFFF" ? null : a.dataset.c; renderInspector(); scheduleRender(true); touch(p.id); return; }
     if (act === "place-reset"){ PLACE_KEYS.forEach(k => { delete s[k]; }); renderInspector(); scheduleRender(true); touch(p.id); return; }
     if (act === "place-all"){ p.slides.forEach(x => { if (x !== s) PLACE_KEYS.forEach(k => { x[k] = s[k] ?? null; }); }); renderStage(); touch(p.id); toast("Logo, label and text positions copied to every slide."); return; }
