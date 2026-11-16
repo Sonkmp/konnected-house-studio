@@ -428,15 +428,17 @@ function normPost(id, p){
   return n;
 }
 const LOOK_KEYS = ["logoX","logoY","logoK","labelX","labelY","labelK","tpl","qTheme","footMode","reelLabel","hiScale","font","hlStyle","hlLast","weight","caps","textColor","scale","lh","track","boxColor","fade","fadeH","topFade","shadow","shadowColor","fadeColor","arrowColor","bw","align","textPos","numAlpha","numScale","badgeColor","badgePos","dim","fade2","fadeH2","dim2"];
-// "Copy this slide to the middle slides" also copies the layout and the photos with their framing
-const FRAME_KEYS = ["layout", "textOnly", "img", "fx", "fy", "zoom", "img2", "fx2", "fy2", "zoom2", "showLogo", "arrow"];
+// "Copy this slide's style to the middle slides" also copies the logo and arrow choices. Never the
+// layout, photos, their framing, the words or the guest chip: each slide keeps its own (Joseph, 2026-11-16).
+const FRAME_KEYS = ["showLogo", "arrow"];
 // the middle slides: everything but the cover (first slide or a cover hook) and the closing CTA
 const isMiddle = (p, x, j) => j > 0 && !x.isCover && x.layout !== "cta";
 // "Use this slide's look on every slide" copies the saved-look settings plus these
 // photo retouch, per still: the bottom still of a two-stills slide uses the same names + "2"
 const RT_BASE = ["sharp", "expo", "contr", "lift", "sat", "warm"];
 const RT_KEYS = [...RT_BASE, ...RT_BASE.map(k => k + "2")];
-const ALL_KEYS = [...LOOK_KEYS, "hideLabel", "chipPos", "bgImg", "bgDim", "topFade", ...RT_KEYS];
+// copying a style never copies an image: each slide keeps its own photos and background image
+const ALL_KEYS = [...LOOK_KEYS, "hideLabel", "chipPos", "bgDim", "topFade", ...RT_KEYS];
 const PLACE_KEYS = ["logoX","logoY","logoK","labelX","labelY","labelK","textX","textY","text2X","text2Y"];
 const presetKey = p => single(p) ? p.format : p.day;
 const presetLabel = key => key === "reel" ? "reel covers" : key === "quote" ? "quote cards" : `${DAYS[key] ? DAYS[key].name : key} carousels`;
@@ -1530,7 +1532,7 @@ function inspSlide(){
   } else parts.push(`<section class="grp"><h3>Layout</h3>
     ${seg("layout", Object.entries(LAYOUTS), L)}
     <button type="button" class="btn sm" data-act="look-all" title="Copies font, sizes, spacing, colours, fades, shadow and arrow">Use this slide's look on every slide</button>
-    ${p.slides.some((x, j) => x !== s && isMiddle(p, x, j)) ? `<button type="button" class="btn sm" data-act="look-middle" title="Copies the layout, photos and their framing, and the whole look. Each slide keeps its own words. The cover and the closing CTA are left alone.">Copy this slide, photos too, to the middle slides</button>` : ""}
+    ${p.slides.some((x, j) => x !== s && isMiddle(p, x, j)) ? `<button type="button" class="btn sm" data-act="look-middle" title="Copies fonts, sizes, colours, fades, retouch, logo and arrow. Each slide keeps its own photos, layout, words and guest name. The cover and the closing CTA are left alone.">Copy this slide's style to the middle slides</button>` : ""}
     <button type="button" class="btn sm ghost" data-act="save-preset">Save this look for new ${presetLabel(presetKey(p))}</button>
     ${state.presets[presetKey(p)] ? `<button type="button" class="link" data-act="clear-preset" style="align-self:flex-start">Forget the saved look for ${presetLabel(presetKey(p))}</button>` : ""}
   </section>`);
@@ -2353,7 +2355,7 @@ function wire(){
         keys.forEach(k => { x[k] = clone({v:s[k]}).v ?? null; });
         if (JSON.stringify(keys.map(k => x[k] ?? null)) !== was) changed++; });
       renderStage(); renderInspector(); touch(p.id, true);
-      toast(changed ? `Copied this slide to ${changed} middle slide${changed > 1 ? "s" : ""}, photos included. Their words stay as they were. Undo if you change your mind.` : "The middle slides already match this one."); return;
+      toast(changed ? `Copied this slide's style to ${changed} middle slide${changed > 1 ? "s" : ""}. Their photos, layout, words and guest names stay as they were. Undo if you change your mind.` : "The middle slides already have this style."); return;
     }
     if (act === "look-all"){
       let changed = 0;
