@@ -4,10 +4,11 @@ rules_version = '2';
 // but these are what actually protect the data.
 //
 //   admin        everything, including the team list
-//   lead         content lead: edit carousels and reel covers, approve them (status Ready)
+//   lead         content lead: reviews and comments; approves posts (status Ready) or sends them back
 //   designer     edit carousels and reel covers
 //   smm          edit reel covers; on carousels only mark them posted (status/caption)
 //   poster       content poster: only moves a Ready post to Posted (and back)
+//   Only the content lead and admins move a post into Ready; that is what sends it to the poster.
 //   contributor  edit reel covers (titles and hooks)
 //   viewer       read only
 //   everyone     comment on designs
@@ -18,8 +19,14 @@ service cloud.firestore {
     function member() { return request.auth != null && request.auth.token.email != null && exists(me()); }
     function role() { return get(me()).data.role; }
     function isAdmin() { return member() && role() == 'admin'; }
-    function designs() { return member() && role() in ['admin', 'lead', 'designer']; }
-    function reels() { return member() && role() in ['admin', 'lead', 'designer', 'smm', 'contributor']; }
+    function designs() { return member() && role() in ['admin', 'designer']; }
+    function reels() { return member() && role() in ['admin', 'designer', 'smm', 'contributor']; }
+    function approves() { return member() && role() in ['admin', 'lead']; }
+    function stOf(data) { return data.get('status', 'draft'); }
+    // nobody but approvers moves a post into Ready
+    function keepsApproval() { return approves() || stOf(request.resource.data) != 'ready' || stOf(resource.data) == 'ready'; }
+    // designers and contributors only move posts between Draft and For review
+    function designStatus() { return approves() || stOf(request.resource.data) == stOf(resource.data) || stOf(request.resource.data) in ['draft', 'review']; }
     function fmt(data) { return data.get('format', 'carousel'); }
 
     match /members/{email} {
@@ -33,12 +40,16 @@ service cloud.firestore {
 
       match /posts/{id} {
         allow read: if member();
-        allow create: if designs() || (reels() && fmt(request.resource.data) == 'reel');
-        allow update: if designs()
-          || (reels() && fmt(resource.data) == 'reel' && fmt(request.resource.data) == 'reel')
-          || (member() && role() == 'smm'
+        allow create: if (designs() || (reels() && fmt(request.resource.data) == 'reel'))
+          && (approves() || stOf(request.resource.data) in ['draft', 'review']);
+        allow update: if (designs() && designStatus())
+          || (reels() && fmt(resource.data) == 'reel' && fmt(request.resource.data) == 'reel' && designStatus())
+          || (member() && role() == 'smm' && keepsApproval()
               && request.resource.data.diff(resource.data).affectedKeys()
                    .hasOnly(['status', 'caption', 'postedAt', 'postedBy', 'updatedAt']))
+          || (member() && role() == 'lead'
+              && request.resource.data.diff(resource.data).affectedKeys()
+                   .hasOnly(['status', 'reviewedAt', 'reviewedBy', 'reviewedByName', 'postedAt', 'postedBy', 'updatedAt']))
           || (member() && role() == 'poster'
               && resource.data.get('status', 'draft') in ['ready', 'posted']
               && request.resource.data.status in ['ready', 'posted']
@@ -64,7 +75,7 @@ service cloud.firestore {
         allow update: if member() && (
           (resource.data.by == request.auth.token.email.lower()
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'editedAt', 'resolved', 'resolvedBy', 'resolvedAt']))
-          || (reels() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['resolved', 'resolvedBy', 'resolvedAt'])));
+          || ((reels() || approves()) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['resolved', 'resolvedBy', 'resolvedAt'])));
         allow delete: if member() && (resource.data.by == request.auth.token.email.lower() || isAdmin());
       }
 

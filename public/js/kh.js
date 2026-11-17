@@ -31,7 +31,7 @@ export const STUDIOS = {
 
 export const ROLES = {
   admin: { label: "Admin", blurb: "Everything, plus adding people and changing roles" },
-  lead: { label: "Content lead", blurb: "Review and edit every design, set posts to Ready when they're approved, mark them posted" },
+  lead: { label: "Content lead", blurb: "Reads and comments on every design, and approves posts so they go to the content poster" },
   designer: { label: "Designer", blurb: "Edit and download carousels and reel covers" },
   smm: { label: "Social media manager", blurb: "Edit and download reel covers, download carousels, mark posts as posted" },
   poster: { label: "Content poster", blurb: "Sees only posts set to Ready, downloads them and marks them posted" },
@@ -40,18 +40,26 @@ export const ROLES = {
 };
 
 // Mirrors firestore.rules. The rules are what actually protect the data.
-const DESIGNS = ["admin", "lead", "designer"];
-const REELS = ["admin", "lead", "designer", "smm", "contributor"];
+const DESIGNS = ["admin", "designer"];
+const REELS = ["admin", "designer", "smm", "contributor"];
+// Only the content lead (and admins) approve a post: moving it to Ready sends it to the content poster.
+const APPROVERS = ["admin", "lead"];
 // Content posters only work from finished posts: Ready ones to post, and the Posted ones they've done.
 const FINISHED = ["ready", "posted"];
 const fmtOf = p => (p && p.format) || "carousel";
 export const can = {
   see: (role, post) => role !== "poster" || FINISHED.includes(post && post.status),
   design: role => DESIGNS.includes(role),
+  approve: role => APPROVERS.includes(role),
+  // which status changes a role may make: approvers any; posters between Ready and Posted;
+  // social media managers anything but Ready; designers and contributors only Draft and For review
+  setStatus: (role, from, to) => APPROVERS.includes(role) || (from || "draft") === to
+    || (role === "poster" ? FINISHED.includes(from || "draft") && FINISHED.includes(to)
+      : role === "smm" ? to !== "ready" : ["draft", "review"].includes(to)),
   edit: (role, post) => DESIGNS.includes(role) || (REELS.includes(role) && fmtOf(post) === "reel"),
   create: (role, fmt) => DESIGNS.includes(role) || (REELS.includes(role) && fmt === "reel"),
-  markPosted: (role, post) => ["admin", "lead", "designer", "smm"].includes(role) || (role === "poster" && FINISHED.includes(post && post.status)),
-  resolve: (role, c, email) => REELS.includes(role) || (c && c.by === email),
+  markPosted: (role, post) => ["admin", "smm"].includes(role) || (["lead", "poster"].includes(role) && FINISHED.includes(post && post.status)),
+  resolve: (role, c, email) => REELS.includes(role) || role === "lead" || (c && c.by === email),
   removeComment: (role, c, email) => role === "admin" || (c && c.by === email),
   team: role => role === "admin"
 };

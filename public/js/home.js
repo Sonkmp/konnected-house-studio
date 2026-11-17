@@ -58,7 +58,7 @@ function showLogin() {
 
 function iso(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; }
 const dayPill = isoDate => new Date(isoDate + "T12:00:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric" });
-const STATUS = { draft: "Draft", ready: "Ready", posted: "Posted" };
+const STATUS = { draft: "Draft", review: "For review", ready: "Ready", posted: "Posted" };
 
 function showHome(s) {
   $("#home").hidden = false;
@@ -182,6 +182,7 @@ function showHome(s) {
           <a href="${st.path}#post=${encodeURIComponent(p.id)}">${esc(p.title || "Untitled")}</a>
           <small>${esc(kind(p))}${p.label ? " · " + esc(p.label) : ""}</small></span></span>
         <span class="acts"><span class="chip" data-s="${esc(p.status || "draft")}">${esc(STATUS[p.status] || "Draft")}</span>
+          ${can.approve(s.role) && p.status === "review" ? `<a class="btn primary sm" href="${st.path}#post=${encodeURIComponent(p.id)}" title="Read it through and approve it">Review</a>` : ""}
           ${can.markPosted(s.role, p) && p.status !== "posted" ? `<button class="btn ghost sm" data-posted="${esc(p.studio)}/${esc(p.id)}" title="Mark as posted">${ICONS.check}<span>Mark posted</span></button>` : ""}</span>
       </div>`;
     }).join("") || empty;

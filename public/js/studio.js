@@ -34,10 +34,12 @@ onSnapshot(collection(db, "studios", studio, "assets"), snap => {
 
 const fmtKey = "kh.fmt." + studio;
 window.KH = {
-  studio, role: s.role, email: s.email,
+  studio, role: s.role, email: s.email, name: s.name,
   canEdit: post => can.edit(s.role, post),
   canSee: post => can.see(s.role, post),
   canDesign: can.design(s.role),
+  canApprove: can.approve(s.role),
+  canSetStatus: (from, to) => can.setStatus(s.role, from, to),
   canCreate: fmt => can.create(s.role, fmt),
   assetSrc: id => assets.src(id),
   assetReady: id => assets.ready(id),

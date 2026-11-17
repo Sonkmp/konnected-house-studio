@@ -309,11 +309,12 @@ label.btn{cursor:pointer}
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
 <link rel="stylesheet" href="/css/studio-theme.css">
 <style>
-html[data-kh-poster] .post-head .meta-row, html[data-kh-poster] .post-head .guest-f,
-html[data-kh-poster] #undoBtn, html[data-kh-poster] #redoBtn, html[data-kh-poster] .toolbar .hint,
-html[data-kh-poster] #compactBtn, html[data-kh-poster] .photo-bar, html[data-kh-poster] .viewer-foot span + span,
-html[data-kh-poster] .add-slide, html[data-kh-poster] #tabPost{display:none !important}
-html[data-kh-poster] #preview, html[data-kh-poster] .title-input{pointer-events:none}
+.chip-st[data-s="review"]{color:#F5B83D;border-color:color-mix(in srgb,#F5B83D 50%,transparent);background:color-mix(in srgb,#F5B83D 10%,transparent)}
+html[data-kh-simple] .post-head .meta-row, html[data-kh-simple] .post-head .guest-f,
+html[data-kh-simple] #undoBtn, html[data-kh-simple] #redoBtn, html[data-kh-simple] .toolbar .hint,
+html[data-kh-simple] #compactBtn, html[data-kh-simple] .photo-bar, html[data-kh-simple] .viewer-foot span + span,
+html[data-kh-simple] .add-slide, html[data-kh-simple] #tabPost{display:none !important}
+html[data-kh-simple] #preview, html[data-kh-simple] .title-input{pointer-events:none}
 .kh-post-panel{display:flex;flex-direction:column;gap:14px;padding:4px 2px}
 .kh-post-panel .kpp-state{display:flex;align-items:center;gap:8px;margin:0;font-weight:700;font-size:15px;color:var(--fg)}
 .kh-post-panel .kpp-state i{width:9px;height:9px;border-radius:50%;background:#46C001;flex:none}
@@ -325,6 +326,10 @@ html[data-kh-poster] #preview, html[data-kh-poster] .title-input{pointer-events:
 .kh-post-panel li > span, .kh-post-panel .kpp-note{font-size:13px;color:var(--muted);margin:0}
 .kh-post-panel .kpp-cap{width:100%;box-sizing:border-box;min-height:180px;resize:vertical;font:inherit;font-size:13px;line-height:1.45;color:var(--fg);background:transparent;border:1px solid var(--line);border-radius:8px;padding:10px}
 .kh-post-panel .btn.full{width:100%;justify-content:center}
+.kh-post-panel .kpp-state[data-s="review"] i{background:#F5B83D}
+.kh-post-panel .kpp-state[data-s="draft"] i{background:var(--muted)}
+.kh-post-panel .kpp-row{display:flex;gap:8px}
+.kh-post-panel .kpp-row .btn{flex:1;justify-content:center}
 </style>
 </head><body>
 <div class="app">
@@ -421,7 +426,7 @@ const DAYS = {
 };
 const DAY_ORDER = ["mon","tue","wed","thu","fri","sat","sun"];
 const LAYOUTS = {photo:"Photo + text", split:"Two stills", step:"Big number", cta:"Closing CTA"};
-const STATUS = {draft:"Draft", ready:"Ready", posted:"Posted"};
+const STATUS = {draft:"Draft", review:"For review", ready:"Ready", posted:"Posted"};
 
 /* ---------- small utils ---------- */
 const $ = (s, r=document) => r.querySelector(s);
@@ -1542,7 +1547,7 @@ function renderStage(){
       <div class="meta-row">
         <label class="f">Pillar<select id="postDay" data-pk="day">${dayOptions(p.day)}</select></label>
         <label class="f">Date<input type="date" id="postDate" value="${esc(p.date)}" data-pk="date"></label>
-        <label class="f">Status<select id="postStatus" data-pk="status">${Object.entries(STATUS).map(([k,v])=>`<option value="${k}"${k===p.status?" selected":""}>${v}</option>`).join("")}</select></label>
+        <label class="f">Status<select id="postStatus" data-pk="status">${Object.entries(STATUS).filter(([k]) => !window.KH || k === p.status || KH.canSetStatus(p.status, k)).map(([k,v])=>`<option value="${k}"${k===p.status?" selected":""}>${v}</option>`).join("")}</select></label>
       </div>
       <label class="f guest-f">Guest<input type="text" id="postGuest" value="${esc(p.guest || "")}" placeholder="${esc(chipGuests(p) || "Who is in this post, so you know whose photos to find")}" data-pk="guest" autocomplete="off"></label>
     </div>
@@ -1584,7 +1589,7 @@ function renderStage(){
   scheduleRender(true);
   fitCols(); // saved panel widths still leave the slide its minimum
   if (window.__khOnStage) window.__khOnStage();
-  if (window.KH && KH.role === "poster") khPosterStage();
+  if (window.KH && (KH.role === "poster" || KH.role === "lead")) khSimpleStage();
   const nb = $(".stagebox"); if (nb && keep && state.zoom > 1){ nb.scrollLeft = keep[0]; nb.scrollTop = keep[1]; }
 }
 
@@ -1846,7 +1851,7 @@ function inspPost(){
 function renderInspector(){
   $("#tabSlide").setAttribute("aria-selected", state.tab === "slide");
   $("#tabPost").setAttribute("aria-selected", state.tab === "post");
-  $("#insp").innerHTML = window.KH && KH.role === "poster" ? khPosterPanel() : state.tab === "slide" ? inspSlide() : inspPost();
+  $("#insp").innerHTML = window.KH && KH.role === "poster" ? khPosterPanel() : window.KH && KH.role === "lead" ? khReviewPanel() : state.tab === "slide" ? inspSlide() : inspPost();
   foldSections();
   if (document.querySelector("canvas[data-tpl]")) renderThumbs();
   document.querySelectorAll("canvas[data-qtpl]").forEach(c => {
@@ -1894,9 +1899,9 @@ function fmtCounts(){
 }
 // Role rules live in js/kh.js; the page only reflects them (Firestore rules enforce them).
 function syncAccess(){
-  const poster = !!(window.KH && KH.role === "poster");
-  document.documentElement.toggleAttribute("data-kh-poster", poster);
-  if (poster){ $("#tabSlide").textContent = "Posting"; state.tab = "slide"; }
+  const poster = !!(window.KH && KH.role === "poster"), lead = !!(window.KH && KH.role === "lead");
+  document.documentElement.toggleAttribute("data-kh-simple", poster || lead);
+  if (poster || lead){ $("#tabSlide").textContent = poster ? "Posting" : "Review"; state.tab = "slide"; }
   let p = cur();
   if (p && window.KH && !KH.canSee(p)){ state.currentId = pickDefaultPost(); state.slideIdx = 0; p = cur(); }
   state.readOnly = !!(window.KH && p && !KH.canEdit(p));
@@ -1922,12 +1927,45 @@ function khPosterPanel(){
     ${at ? `<p class="kpp-note">Marked posted ${esc(at)}.</p>` : ""}
   </div>`;
 }
-function khPosterStage(){
+function khSimpleStage(){
   const t = $("#postTitle"); if (t){ t.readOnly = true; t.tabIndex = -1; }
   document.querySelectorAll(".thumb[draggable]").forEach(b => { b.draggable = false; b.title = "Slide " + (+b.dataset.i + 1); });
 }
+// Content lead: read the post through, comment, then approve it (Ready, so the poster gets it) or send it back.
+const KH_REVIEW_HEAD = {draft: "Still being designed", review: "Waiting for your review", ready: "Approved · with the poster", posted: "Posted"};
+function khReviewPanel(){
+  const p = cur(); if (!p) return `<p class="kpp-note">Nothing to review yet. Posts show up here when the design team sends them for review.</p>`;
+  const st = p.status || "draft", one = single(p);
+  const decide = st === "posted" ? `<span>It's been posted. Nothing more to do.</span>`
+    : st === "ready" ? `<span>The poster can see it now.</span><button class="btn full" type="button" data-kh-status="review">Take it back for changes</button>`
+    : `${st === "draft" ? `<span>The design team hasn't sent this for review yet.</span>` : `<span>Happy with it? Approve it and it goes straight to the poster.</span>`}
+      <div class="kpp-row"><button class="btn primary" type="button" data-kh-status="ready">Approve</button>${st === "review" ? `<button class="btn" type="button" data-kh-status="draft">Send back</button>` : ""}</div>`;
+  return `<div class="kh-post-panel">
+    <p class="kpp-state" data-s="${esc(st)}"><i></i>${KH_REVIEW_HEAD[st] || "Draft"}${p.date ? ` · ${esc(fmtDate(p.date))}` : ""}</p>
+    <ol>
+      <li><b>Read it through</b><span>${one ? "Check the image" : `Go through all ${p.slides.length} slides (arrows or the strip)`}, then the caption.</span>
+        <textarea class="kpp-cap" readonly aria-label="Caption">${esc(p.caption || "")}</textarea></li>
+      <li><b>Comment on anything to fix</b><span>Comments sit on the slide you're looking at, so the designer knows where.</span>
+        <button class="btn full" type="button" data-kh-comment>Add a comment</button></li>
+      <li><b>${st === "ready" || st === "posted" ? "Approved" : "Approve or send back"}</b>${decide}</li>
+    </ol>
+    ${p.reviewedBy && (st === "ready" || st === "posted") ? `<p class="kpp-note">Approved by ${esc(p.reviewedByName || p.reviewedBy.split("@")[0])}${p.reviewedAt ? " · " + esc(new Date(p.reviewedAt).toLocaleString("en-GB", {day:"numeric", month:"short", hour:"2-digit", minute:"2-digit"})) : ""}.</p>` : ""}
+  </div>`;
+}
+document.addEventListener("click", async e => {
+  const b = e.target.closest && e.target.closest("[data-kh-status]"), p = cur(); if (!b || !p || !window.KH) return;
+  const to = b.dataset.khStatus, now = Date.now();
+  const data = Object.assign({status: to, updatedAt: now}, to === "ready" ? {reviewedAt: now, reviewedBy: KH.email, reviewedByName: KH.name || ""} : {});
+  b.disabled = true;
+  try {
+    await state.db.collection("posts").doc(p.id).update(data); Object.assign(p, data); renderAll();
+    toast(to === "ready" ? "Approved. It's with the poster now." : to === "draft" ? "Sent back to the design team. Leave a comment saying what to change." : "Taken back for review.");
+    if (to === "draft" && window.__khOpenComments) window.__khOpenComments();
+  } catch(err){ b.disabled = false; toast("Couldn't change the status. Try again."); }
+});
 document.addEventListener("click", async e => {
   const p = cur(); if (!p || !e.target.closest) return;
+  if (e.target.closest("[data-kh-comment]")){ if (window.__khOpenComments) window.__khOpenComments(); return; }
   if (e.target.closest("[data-kh-dl]")){ const b = $("#dlZip") || $("#dlSlide"); if (b) b.click(); return; }
   if (e.target.closest("[data-kh-copy]")){
     try { await navigator.clipboard.writeText(p.caption || ""); }
@@ -1979,7 +2017,7 @@ function renderSave(){
 function renderBanner(){
   const b = $("#banner");
   if (state.mode === "local") b.innerHTML = `<div class="banner">Can't reach the saved posts, so edits last only until you close the tab. Check your connection and reload.</div>`;
-  else if (window.KH && KH.role === "poster") b.innerHTML = "";
+  else if (window.KH && (KH.role === "poster" || KH.role === "lead")) b.innerHTML = "";
   else if (state.readOnly && cur()) b.innerHTML = `<div class="banner">You can look at this ${cur().format === "reel" ? "reel cover" : "carousel"} and download it. Changes you make here aren't saved.</div>`;
   else b.innerHTML = "";
 }
@@ -2090,7 +2128,7 @@ function goSlide(i){
 function pickDefaultPost(){
   const posts = sortedPosts(); if (!posts.length) return null;
   const today = todayISO();
-  return (posts.find(p => p.date >= today && p.status !== "posted") || posts.find(p => p.date >= today) || posts[posts.length - 1]).id;
+  return ((window.KH && KH.role === "lead" && posts.find(p => p.status === "review")) || posts.find(p => p.date >= today && p.status !== "posted") || posts.find(p => p.date >= today) || posts[posts.length - 1]).id;
 }
 
 /* ---------- editing ---------- */

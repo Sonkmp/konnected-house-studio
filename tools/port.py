@@ -17,14 +17,16 @@ STUDIOS = {
 }
 
 
-# Content posters only post finished work, so their studio drops the editing controls and the
-# settings panel becomes a three-step posting panel (download, copy the caption, mark posted).
-POSTER_CSS = """<style>
-html[data-kh-poster] .post-head .meta-row, html[data-kh-poster] .post-head .guest-f,
-html[data-kh-poster] #undoBtn, html[data-kh-poster] #redoBtn, html[data-kh-poster] .toolbar .hint,
-html[data-kh-poster] #compactBtn, html[data-kh-poster] .photo-bar, html[data-kh-poster] .viewer-foot span + span,
-html[data-kh-poster] .add-slide, html[data-kh-poster] #tabPost{display:none !important}
-html[data-kh-poster] #preview, html[data-kh-poster] .title-input{pointer-events:none}
+# Content posters and the content lead don't edit designs, so their studio drops the editing controls.
+# For posters the settings panel becomes a posting panel (download, copy the caption, mark posted);
+# for the lead it becomes a review panel (read it through, comment, approve or send back).
+SIMPLE_CSS = """<style>
+.chip-st[data-s="review"]{color:#F5B83D;border-color:color-mix(in srgb,#F5B83D 50%,transparent);background:color-mix(in srgb,#F5B83D 10%,transparent)}
+html[data-kh-simple] .post-head .meta-row, html[data-kh-simple] .post-head .guest-f,
+html[data-kh-simple] #undoBtn, html[data-kh-simple] #redoBtn, html[data-kh-simple] .toolbar .hint,
+html[data-kh-simple] #compactBtn, html[data-kh-simple] .photo-bar, html[data-kh-simple] .viewer-foot span + span,
+html[data-kh-simple] .add-slide, html[data-kh-simple] #tabPost{display:none !important}
+html[data-kh-simple] #preview, html[data-kh-simple] .title-input{pointer-events:none}
 .kh-post-panel{display:flex;flex-direction:column;gap:14px;padding:4px 2px}
 .kh-post-panel .kpp-state{display:flex;align-items:center;gap:8px;margin:0;font-weight:700;font-size:15px;color:var(--fg)}
 .kh-post-panel .kpp-state i{width:9px;height:9px;border-radius:50%;background:#46C001;flex:none}
@@ -36,6 +38,10 @@ html[data-kh-poster] #preview, html[data-kh-poster] .title-input{pointer-events:
 .kh-post-panel li > span, .kh-post-panel .kpp-note{font-size:13px;color:var(--muted);margin:0}
 .kh-post-panel .kpp-cap{width:100%;box-sizing:border-box;min-height:180px;resize:vertical;font:inherit;font-size:13px;line-height:1.45;color:var(--fg);background:transparent;border:1px solid var(--line);border-radius:8px;padding:10px}
 .kh-post-panel .btn.full{width:100%;justify-content:center}
+.kh-post-panel .kpp-state[data-s="review"] i{background:#F5B83D}
+.kh-post-panel .kpp-state[data-s="draft"] i{background:var(--muted)}
+.kh-post-panel .kpp-row{display:flex;gap:8px}
+.kh-post-panel .kpp-row .btn{flex:1;justify-content:center}
 </style>
 """
 
@@ -63,7 +69,7 @@ def port(key):
         '<script src="/js/kh-boot.js"></script>')
     # the interface theme loads after the studio's own styles; it never touches the canvas artwork
     rep('\n<div class="app">', '\n<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">\n'
-        '<link rel="stylesheet" href="/css/studio-theme.css">\n' + POSTER_CSS + '</head><body>\n<div class="app">')
+        '<link rel="stylesheet" href="/css/studio-theme.css">\n' + SIMPLE_CSS + '</head><body>\n<div class="app">')
     rep('__LOGO_FULL__', f'/brand/{key}-logo-full.png', 2)
     rep('__LOGO_MARK__', f'/brand/{key}-mark.png')
     src = src.rstrip() + '\n<script type="module" src="/js/studio.js"></script>\n</body></html>\n'
@@ -123,9 +129,9 @@ function fmtCounts(){
 }
 // Role rules live in js/kh.js; the page only reflects them (Firestore rules enforce them).
 function syncAccess(){
-  const poster = !!(window.KH && KH.role === "poster");
-  document.documentElement.toggleAttribute("data-kh-poster", poster);
-  if (poster){ $("#tabSlide").textContent = "Posting"; state.tab = "slide"; }
+  const poster = !!(window.KH && KH.role === "poster"), lead = !!(window.KH && KH.role === "lead");
+  document.documentElement.toggleAttribute("data-kh-simple", poster || lead);
+  if (poster || lead){ $("#tabSlide").textContent = poster ? "Posting" : "Review"; state.tab = "slide"; }
   let p = cur();
   if (p && window.KH && !KH.canSee(p)){ state.currentId = pickDefaultPost(); state.slideIdx = 0; p = cur(); }
   state.readOnly = !!(window.KH && p && !KH.canEdit(p));
@@ -151,12 +157,45 @@ function khPosterPanel(){
     ${at ? `<p class="kpp-note">Marked posted ${esc(at)}.</p>` : ""}
   </div>`;
 }
-function khPosterStage(){
+function khSimpleStage(){
   const t = $("#postTitle"); if (t){ t.readOnly = true; t.tabIndex = -1; }
   document.querySelectorAll(".thumb[draggable]").forEach(b => { b.draggable = false; b.title = "Slide " + (+b.dataset.i + 1); });
 }
+// Content lead: read the post through, comment, then approve it (Ready, so the poster gets it) or send it back.
+const KH_REVIEW_HEAD = {draft: "Still being designed", review: "Waiting for your review", ready: "Approved · with the poster", posted: "Posted"};
+function khReviewPanel(){
+  const p = cur(); if (!p) return `<p class="kpp-note">Nothing to review yet. Posts show up here when the design team sends them for review.</p>`;
+  const st = p.status || "draft", one = single(p);
+  const decide = st === "posted" ? `<span>It's been posted. Nothing more to do.</span>`
+    : st === "ready" ? `<span>The poster can see it now.</span><button class="btn full" type="button" data-kh-status="review">Take it back for changes</button>`
+    : `${st === "draft" ? `<span>The design team hasn't sent this for review yet.</span>` : `<span>Happy with it? Approve it and it goes straight to the poster.</span>`}
+      <div class="kpp-row"><button class="btn primary" type="button" data-kh-status="ready">Approve</button>${st === "review" ? `<button class="btn" type="button" data-kh-status="draft">Send back</button>` : ""}</div>`;
+  return `<div class="kh-post-panel">
+    <p class="kpp-state" data-s="${esc(st)}"><i></i>${KH_REVIEW_HEAD[st] || "Draft"}${p.date ? ` · ${esc(fmtDate(p.date))}` : ""}</p>
+    <ol>
+      <li><b>Read it through</b><span>${one ? "Check the image" : `Go through all ${p.slides.length} slides (arrows or the strip)`}, then the caption.</span>
+        <textarea class="kpp-cap" readonly aria-label="Caption">${esc(p.caption || "")}</textarea></li>
+      <li><b>Comment on anything to fix</b><span>Comments sit on the slide you're looking at, so the designer knows where.</span>
+        <button class="btn full" type="button" data-kh-comment>Add a comment</button></li>
+      <li><b>${st === "ready" || st === "posted" ? "Approved" : "Approve or send back"}</b>${decide}</li>
+    </ol>
+    ${p.reviewedBy && (st === "ready" || st === "posted") ? `<p class="kpp-note">Approved by ${esc(p.reviewedByName || p.reviewedBy.split("@")[0])}${p.reviewedAt ? " · " + esc(new Date(p.reviewedAt).toLocaleString("en-GB", {day:"numeric", month:"short", hour:"2-digit", minute:"2-digit"})) : ""}.</p>` : ""}
+  </div>`;
+}
+document.addEventListener("click", async e => {
+  const b = e.target.closest && e.target.closest("[data-kh-status]"), p = cur(); if (!b || !p || !window.KH) return;
+  const to = b.dataset.khStatus, now = Date.now();
+  const data = Object.assign({status: to, updatedAt: now}, to === "ready" ? {reviewedAt: now, reviewedBy: KH.email, reviewedByName: KH.name || ""} : {});
+  b.disabled = true;
+  try {
+    await state.db.collection("posts").doc(p.id).update(data); Object.assign(p, data); renderAll();
+    toast(to === "ready" ? "Approved. It's with the poster now." : to === "draft" ? "Sent back to the design team. Leave a comment saying what to change." : "Taken back for review.");
+    if (to === "draft" && window.__khOpenComments) window.__khOpenComments();
+  } catch(err){ b.disabled = false; toast("Couldn't change the status. Try again."); }
+});
 document.addEventListener("click", async e => {
   const p = cur(); if (!p || !e.target.closest) return;
+  if (e.target.closest("[data-kh-comment]")){ if (window.__khOpenComments) window.__khOpenComments(); return; }
   if (e.target.closest("[data-kh-dl]")){ const b = $("#dlZip") || $("#dlSlide"); if (b) b.click(); return; }
   if (e.target.closest("[data-kh-copy]")){
     try { await navigator.clipboard.writeText(p.caption || ""); }
@@ -184,7 +223,7 @@ function renderAll(){ syncAccess(); renderList();''')
         '<p>Posts the content team queues show up here. You can also start one with <b>+ New</b> and add photos yourself.</p>')
     rep('''  if (state.mode === "local") b.innerHTML = `<div class="banner">Saving isn't available in this view, so edits last only until you close the tab. Open the studio on claude.ai while signed in to keep your changes.</div>`;''',
         '''  if (state.mode === "local") b.innerHTML = `<div class="banner">Can't reach the saved posts, so edits last only until you close the tab. Check your connection and reload.</div>`;
-  else if (window.KH && KH.role === "poster") b.innerHTML = "";
+  else if (window.KH && (KH.role === "poster" || KH.role === "lead")) b.innerHTML = "";
   else if (state.readOnly && cur()) b.innerHTML = `<div class="banner">You can look at this ${cur().format === "reel" ? "reel cover" : "carousel"} and download it. Changes you make here aren't saved.</div>`;''')
 
     # ---------- start-up: format to open, deep links, photo refresh ----------
@@ -206,8 +245,14 @@ window.__khRefresh = () => {
     # ---------- cover thumbnails for Home's grid view ----------
     # Each save stores a small JPEG of the first slide (post.thumb). It is drawn by the same drawSlide,
     # only scaled down; the artwork and exports are untouched.
+    rep('const STATUS = {draft:"Draft", ready:"Ready", posted:"Posted"};', 'const STATUS = {draft:"Draft", review:"For review", ready:"Ready", posted:"Posted"};')
+    rep('<select id="postStatus" data-pk="status">${Object.entries(STATUS).map(',
+        '<select id="postStatus" data-pk="status">${Object.entries(STATUS).filter(([k]) => !window.KH || k === p.status || KH.canSetStatus(p.status, k)).map(')
+    # the content lead opens on the first post waiting for review
+    rep('return (posts.find(p => p.date >= today && p.status !== "posted")',
+        'return ((window.KH && KH.role === "lead" && posts.find(p => p.status === "review")) || posts.find(p => p.date >= today && p.status !== "posted")')
     rep('$("#insp").innerHTML = state.tab === "slide" ? inspSlide() : inspPost();',
-        '$("#insp").innerHTML = window.KH && KH.role === "poster" ? khPosterPanel() : state.tab === "slide" ? inspSlide() : inspPost();')
+        '$("#insp").innerHTML = window.KH && KH.role === "poster" ? khPosterPanel() : window.KH && KH.role === "lead" ? khReviewPanel() : state.tab === "slide" ? inspSlide() : inspPost();')
     rep('    await state.db.collection("posts").doc(pid).set(cleanPost(p));',
         '    const data = cleanPost(p); try { data.thumb = khThumb(p); } catch(e){ /* a thumbnail is optional */ }\n'
         '    await state.db.collection("posts").doc(pid).set(data);')
@@ -254,7 +299,7 @@ function renderAll(){ syncAccess(); renderList();''')
         '      <div class="insp-body" id="insp"></div>\n      <div class="kh-comments" id="khComments" hidden></div>')
     rep('  list.innerHTML = html;\n', '  list.innerHTML = html;\n  if (window.__khOnList) window.__khOnList();\n')
     rep('  fitCols(); // saved panel widths still leave the slide its minimum',
-        '  fitCols(); // saved panel widths still leave the slide its minimum\n  if (window.__khOnStage) window.__khOnStage();\n  if (window.KH && KH.role === "poster") khPosterStage();')
+        '  fitCols(); // saved panel widths still leave the slide its minimum\n  if (window.__khOnStage) window.__khOnStage();\n  if (window.KH && (KH.role === "poster" || KH.role === "lead")) khSimpleStage();')
     rep('window.__khRefresh = () => {', 'window.__studio.goSlide = goSlide;\nwindow.__khRefresh = () => {')
 
     out_dir = os.path.join(ROOT, "public", key)
