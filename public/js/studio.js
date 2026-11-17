@@ -36,6 +36,8 @@ const fmtKey = "kh.fmt." + studio;
 window.KH = {
   studio, role: s.role, email: s.email,
   canEdit: post => can.edit(s.role, post),
+  canSee: post => can.see(s.role, post),
+  canDesign: can.design(s.role),
   canCreate: fmt => can.create(s.role, fmt),
   assetSrc: id => assets.src(id),
   assetReady: id => assets.ready(id),
@@ -48,7 +50,8 @@ window.KH = {
     if (location.hash === "#quote" && STUDIOS[studio].quotes) return "quote";
     if (location.hash === "#carousel") return "carousel";
     try { const f = localStorage.getItem(fmtKey); if (f === "reel" || f === "carousel" || (f === "quote" && STUDIOS[studio].quotes)) return f; } catch (e) { /* ignore */ }
-    return can.create(s.role, "carousel") ? "carousel" : "reel";
+    // people who can only make reel covers start there; everyone else on carousels
+    return !can.create(s.role, "carousel") && can.create(s.role, "reel") ? "reel" : "carousel";
   }
 };
 

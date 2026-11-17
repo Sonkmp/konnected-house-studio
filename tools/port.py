@@ -69,7 +69,7 @@ def port(key):
     rep('  confirm: null\n};', '  confirm: null, fmt: "carousel"\n};')
     rep('function renderList(){', 'function renderList(){ fmtCounts();')
     rep('return [...state.posts.values()].sort(',
-        'return [...state.posts.values()].filter(p => (p.format || "carousel") === state.fmt && matchQ(p)).sort(')
+        'return [...state.posts.values()].filter(p => (p.format || "carousel") === state.fmt && matchQ(p) && (!window.KH || KH.canSee(p))).sort(')
     rep('const format = $("#newFormat").value;',
         'const format = state.fmt;\n'
         '    if (window.KH && !KH.canCreate(format)){ toast(`Your role can\'t start ${format === "reel" ? "reel covers" : "carousels"}.`); return; }')
@@ -95,16 +95,30 @@ function matchQ(p){
 }
 // The toggle shows how many posts each format has.
 function fmtCounts(){
-  const n = f => [...state.posts.values()].filter(p => (p.format || "carousel") === f).length;
+  const n = f => [...state.posts.values()].filter(p => (p.format || "carousel") === f && (!window.KH || KH.canSee(p))).length;
   document.querySelectorAll("#fmtSeg [data-fmt]").forEach(b => { b.innerHTML = `<i class="ic" aria-hidden="true"></i><span class="l">${b.dataset.label} <span class="n">${n(b.dataset.fmt)}</span></span>`; });
 }
 // Role rules live in js/kh.js; the page only reflects them (Firestore rules enforce them).
 function syncAccess(){
-  const p = cur();
+  let p = cur();
+  if (p && window.KH && !KH.canSee(p)){ state.currentId = pickDefaultPost(); state.slideIdx = 0; p = cur(); }
   state.readOnly = !!(window.KH && p && !KH.canEdit(p));
   document.querySelectorAll("#fmtSeg [data-fmt]").forEach(b => { const on = b.dataset.fmt === state.fmt; b.classList.toggle("on", on); b.setAttribute("aria-selected", String(on)); });
   const nb = $("#newPostBtn"); if (nb){ nb.hidden = !!(window.KH && !KH.canCreate(state.fmt)); nb.textContent = "New " + ({carousel:"carousel", reel:"reel cover", quote:"quote card"}[state.fmt] || "post"); }
 }
+// Content posters: download a Ready post, post it, then mark it posted here (or undo that).
+function khPosterBanner(p){
+  if (p.status === "posted") return `<div class="banner">Marked as posted. Download it again any time. <button class="btn ghost sm" type="button" data-kh-posted="0">Not posted yet? Undo</button></div>`;
+  return `<div class="banner">Ready to post. Download it, post it, then mark it as posted. <button class="btn primary sm" type="button" data-kh-posted="1">Mark as posted</button></div>`;
+}
+document.addEventListener("click", async e => {
+  const b = e.target.closest && e.target.closest("[data-kh-posted]"), p = cur(); if (!b || !p || !window.KH) return;
+  const posted = b.dataset.khPosted === "1", now = Date.now();
+  const data = posted ? {status:"posted", postedAt: now, postedBy: KH.email, updatedAt: now} : {status:"ready", updatedAt: now};
+  b.disabled = true;
+  try { await state.db.collection("posts").doc(p.id).update(data); Object.assign(p, data); renderAll(); toast(posted ? "Marked as posted." : "Back to Ready."); }
+  catch(err){ b.disabled = false; toast("Couldn't change the status. Try again."); }
+});
 function renderAll(){ syncAccess(); renderList();''')
 
     # ---------- photos come from the site's asset store ----------
@@ -117,6 +131,7 @@ function renderAll(){ syncAccess(); renderList();''')
         '<p>Posts the content team queues show up here. You can also start one with <b>+ New</b> and add photos yourself.</p>')
     rep('''  if (state.mode === "local") b.innerHTML = `<div class="banner">Saving isn't available in this view, so edits last only until you close the tab. Open the studio on claude.ai while signed in to keep your changes.</div>`;''',
         '''  if (state.mode === "local") b.innerHTML = `<div class="banner">Can't reach the saved posts, so edits last only until you close the tab. Check your connection and reload.</div>`;
+  else if (window.KH && KH.role === "poster" && cur()) b.innerHTML = khPosterBanner(cur());
   else if (state.readOnly && cur()) b.innerHTML = `<div class="banner">You can look at this ${cur().format === "reel" ? "reel cover" : "carousel"} and download it. Changes you make here aren't saved.</div>`;''')
 
     # ---------- start-up: format to open, deep links, photo refresh ----------
@@ -124,7 +139,7 @@ function renderAll(){ syncAccess(); renderList();''')
         'state.assets = assets; state.downloads = downloads;\n  if (window.KH) state.fmt = KH.startFormat();')
     rep('if (first){ first = false; renderAll(); }',
         'if (first){ first = false;\n'
-        '      const m = location.hash.match(/^#post=(.+)$/), tp = m && state.posts.get(decodeURIComponent(m[1]));\n'
+        '      const m = location.hash.match(/^#post=(.+)$/), tp = m && [state.posts.get(decodeURIComponent(m[1]))].find(p => p && (!window.KH || KH.canSee(p)));\n'
         '      if (tp){ state.fmt = tp.format || "carousel"; openPost(tp.id); } else { state.currentId = pickDefaultPost(); renderAll(); }\n'
         '    }')
     rep('window.__studio = {state, normPost, openPost, renderAll, templateFor, drawSlide};',
@@ -169,6 +184,9 @@ function renderAll(){ syncAccess(); renderList();''')
     # the thumbnail is derived data, so undo history ignores it
     rep('function snapStr(p){ const o = Object.assign({}, p); delete o.updatedAt; return JSON.stringify(o); }',
         'function snapStr(p){ const o = Object.assign({}, p); delete o.updatedAt; delete o.thumb; return JSON.stringify(o); }')
+
+    # who may delete photos comes from the site's roles (content leads, designers, admins)
+    rep('(!window.KH || ["admin", "designer"].includes(KH.role))', '(!window.KH || KH.canDesign)')
 
     # icon-only buttons on narrow screens keep a tooltip
     rep('<button class="btn" id="dlSlide">Download this slide</button>', '<button class="btn" id="dlSlide" title="Download this slide (PNG)">Download this slide</button>')

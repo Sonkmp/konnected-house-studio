@@ -4,8 +4,10 @@ rules_version = '2';
 // but these are what actually protect the data.
 //
 //   admin        everything, including the team list
+//   lead         content lead: edit carousels and reel covers, approve them (status Ready)
 //   designer     edit carousels and reel covers
 //   smm          edit reel covers; on carousels only mark them posted (status/caption)
+//   poster       content poster: only moves a Ready post to Posted (and back)
 //   contributor  edit reel covers (titles and hooks)
 //   viewer       read only
 //   everyone     comment on designs
@@ -16,8 +18,8 @@ service cloud.firestore {
     function member() { return request.auth != null && request.auth.token.email != null && exists(me()); }
     function role() { return get(me()).data.role; }
     function isAdmin() { return member() && role() == 'admin'; }
-    function designs() { return member() && role() in ['admin', 'designer']; }
-    function reels() { return member() && role() in ['admin', 'designer', 'smm', 'contributor']; }
+    function designs() { return member() && role() in ['admin', 'lead', 'designer']; }
+    function reels() { return member() && role() in ['admin', 'lead', 'designer', 'smm', 'contributor']; }
     function fmt(data) { return data.get('format', 'carousel'); }
 
     match /members/{email} {
@@ -36,7 +38,12 @@ service cloud.firestore {
           || (reels() && fmt(resource.data) == 'reel' && fmt(request.resource.data) == 'reel')
           || (member() && role() == 'smm'
               && request.resource.data.diff(resource.data).affectedKeys()
-                   .hasOnly(['status', 'caption', 'postedAt', 'postedBy', 'updatedAt']));
+                   .hasOnly(['status', 'caption', 'postedAt', 'postedBy', 'updatedAt']))
+          || (member() && role() == 'poster'
+              && resource.data.get('status', 'draft') in ['ready', 'posted']
+              && request.resource.data.status in ['ready', 'posted']
+              && request.resource.data.diff(resource.data).affectedKeys()
+                   .hasOnly(['status', 'postedAt', 'postedBy', 'updatedAt']));
         allow delete: if designs() || (reels() && fmt(resource.data) == 'reel');
       }
 

@@ -114,10 +114,10 @@ function showHome(s) {
   for (const st of Object.values(STUDIOS)) {
     const q = query(collection(db, "studios", st.key, "posts"), where("date", ">=", from), where("date", "<=", to));
     onSnapshot(q, snap => {
-      posts[st.key] = snap.docs.map(d => ({ id: d.id, studio: st.key, ...d.data() }));
+      posts[st.key] = snap.docs.map(d => ({ id: d.id, studio: st.key, ...d.data() })).filter(p => can.see(s.role, p));
       const list = posts[st.key], open = list.filter(p => p.status !== "posted").length;
       $("#count-" + st.key).textContent = list.length ? `${list.length} post${list.length > 1 ? "s" : ""} in the next 14 days · ${open} not posted yet` : "Nothing scheduled in the next 14 days";
-      render();
+      render(); renderComments();
     }, () => { $("#sched").innerHTML = `<p class="empty">Couldn't load the schedule. Reload to try again.</p>`; });
   }
 
@@ -130,7 +130,9 @@ function showHome(s) {
     }, () => { $("#cmts").innerHTML = `<p class="empty">Comments aren't switched on yet.</p>`; });
   }
   function renderComments() {
-    const list = Object.values(comments).flat().sort((a, b) => b.createdAt - a.createdAt);
+    // content posters only hear about the posts they can see (Ready or Posted)
+    const seen = s.role === "poster" ? new Set(Object.values(posts).flat().map(p => p.studio + "/" + p.id)) : null;
+    const list = Object.values(comments).flat().filter(c => !seen || seen.has(c.studio + "/" + c.postId)).sort((a, b) => b.createdAt - a.createdAt);
     $("#cmtTotal").textContent = list.length ? `${list.length} open` : "";
     $("#cmts").innerHTML = list.slice(0, 8).map(c => {
       const st = STUDIOS[c.studio];
@@ -156,7 +158,7 @@ function showHome(s) {
     const shown = (filter ? all.filter(FILTERS[filter][1]) : all).filter(p => fmt === "all" || fmtOf(p) === fmt);
     const kind = p => p.format === "reel" ? "Reel cover" : p.format === "quote" ? "Quote card" : `Carousel · ${(p.slides || []).length} slides`;
     const fmtWord = { carousel: "carousels", quote: "quote cards", reel: "reel covers" }[fmt];
-    const empty = `<p class="empty">${filter ? `Nothing ${FILTERS[filter][0]}${fmtWord ? ` among the ${fmtWord}` : ""} in the next 14 days.` : `No ${fmtWord || "posts"} scheduled in the next 14 days.`}</p>`;
+    const empty = s.role === "poster" && !filter ? `<p class="empty">Nothing ready to post in the next 14 days. Posts show up here once the content lead sets them to Ready.</p>` : `<p class="empty">${filter ? `Nothing ${FILTERS[filter][0]}${fmtWord ? ` among the ${fmtWord}` : ""} in the next 14 days.` : `No ${fmtWord || "posts"} scheduled in the next 14 days.`}</p>`;
     $("#sched").classList.toggle("pgrid", view === "grid");
     if (view === "grid") {
       $("#sched").innerHTML = shown.map(p => {
@@ -180,7 +182,7 @@ function showHome(s) {
           <a href="${st.path}#post=${encodeURIComponent(p.id)}">${esc(p.title || "Untitled")}</a>
           <small>${esc(kind(p))}${p.label ? " · " + esc(p.label) : ""}</small></span></span>
         <span class="acts"><span class="chip" data-s="${esc(p.status || "draft")}">${esc(STATUS[p.status] || "Draft")}</span>
-          ${can.markPosted(s.role) && p.status !== "posted" ? `<button class="btn ghost sm" data-posted="${esc(p.studio)}/${esc(p.id)}" title="Mark as posted">${ICONS.check}<span>Mark posted</span></button>` : ""}</span>
+          ${can.markPosted(s.role, p) && p.status !== "posted" ? `<button class="btn ghost sm" data-posted="${esc(p.studio)}/${esc(p.id)}" title="Mark as posted">${ICONS.check}<span>Mark posted</span></button>` : ""}</span>
       </div>`;
     }).join("") || empty;
   }

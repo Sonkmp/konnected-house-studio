@@ -1557,7 +1557,7 @@ function renderThumbs(){
 function hasPhoto(s){ return !s.textOnly && (!!srcOf(s.img) || (s.layout === "split" && !!srcOf(s.img2))); }
 
 function sortedPosts(){
-  return [...state.posts.values()].filter(p => (p.format || "carousel") === state.fmt && matchQ(p)).sort((a, b) => (a.date||"9999").localeCompare(b.date||"9999") || DAY_ORDER.indexOf(a.day) - DAY_ORDER.indexOf(b.day) || a.title.localeCompare(b.title));
+  return [...state.posts.values()].filter(p => (p.format || "carousel") === state.fmt && matchQ(p) && (!window.KH || KH.canSee(p))).sort((a, b) => (a.date||"9999").localeCompare(b.date||"9999") || DAY_ORDER.indexOf(a.day) - DAY_ORDER.indexOf(b.day) || a.title.localeCompare(b.title));
 }
 function renderList(){ fmtCounts();
   const list = $("#postList"), posts = sortedPosts();
@@ -1956,16 +1956,30 @@ function matchQ(p){
 }
 // The toggle shows how many posts each format has.
 function fmtCounts(){
-  const n = f => [...state.posts.values()].filter(p => (p.format || "carousel") === f).length;
+  const n = f => [...state.posts.values()].filter(p => (p.format || "carousel") === f && (!window.KH || KH.canSee(p))).length;
   document.querySelectorAll("#fmtSeg [data-fmt]").forEach(b => { b.innerHTML = `<i class="ic" aria-hidden="true"></i><span class="l">${b.dataset.label} <span class="n">${n(b.dataset.fmt)}</span></span>`; });
 }
 // Role rules live in js/kh.js; the page only reflects them (Firestore rules enforce them).
 function syncAccess(){
-  const p = cur();
+  let p = cur();
+  if (p && window.KH && !KH.canSee(p)){ state.currentId = pickDefaultPost(); state.slideIdx = 0; p = cur(); }
   state.readOnly = !!(window.KH && p && !KH.canEdit(p));
   document.querySelectorAll("#fmtSeg [data-fmt]").forEach(b => { const on = b.dataset.fmt === state.fmt; b.classList.toggle("on", on); b.setAttribute("aria-selected", String(on)); });
   const nb = $("#newPostBtn"); if (nb){ nb.hidden = !!(window.KH && !KH.canCreate(state.fmt)); nb.textContent = "New " + ({carousel:"carousel", reel:"reel cover", quote:"quote card"}[state.fmt] || "post"); }
 }
+// Content posters: download a Ready post, post it, then mark it posted here (or undo that).
+function khPosterBanner(p){
+  if (p.status === "posted") return `<div class="banner">Marked as posted. Download it again any time. <button class="btn ghost sm" type="button" data-kh-posted="0">Not posted yet? Undo</button></div>`;
+  return `<div class="banner">Ready to post. Download it, post it, then mark it as posted. <button class="btn primary sm" type="button" data-kh-posted="1">Mark as posted</button></div>`;
+}
+document.addEventListener("click", async e => {
+  const b = e.target.closest && e.target.closest("[data-kh-posted]"), p = cur(); if (!b || !p || !window.KH) return;
+  const posted = b.dataset.khPosted === "1", now = Date.now();
+  const data = posted ? {status:"posted", postedAt: now, postedBy: KH.email, updatedAt: now} : {status:"ready", updatedAt: now};
+  b.disabled = true;
+  try { await state.db.collection("posts").doc(p.id).update(data); Object.assign(p, data); renderAll(); toast(posted ? "Marked as posted." : "Back to Ready."); }
+  catch(err){ b.disabled = false; toast("Couldn't change the status. Try again."); }
+});
 function khThumb(p){
   const s = p.slides[0]; if (!s) return null;
   const c = document.createElement("canvas"); c.width = 270; c.height = Math.round(270 * postH(p) / W);
@@ -2002,6 +2016,7 @@ function renderSave(){
 function renderBanner(){
   const b = $("#banner");
   if (state.mode === "local") b.innerHTML = `<div class="banner">Can't reach the saved posts, so edits last only until you close the tab. Check your connection and reload.</div>`;
+  else if (window.KH && KH.role === "poster" && cur()) b.innerHTML = khPosterBanner(cur());
   else if (state.readOnly && cur()) b.innerHTML = `<div class="banner">You can look at this ${cur().format === "reel" ? "reel cover" : "carousel"} and download it. Changes you make here aren't saved.</div>`;
   else b.innerHTML = "";
 }
@@ -2181,7 +2196,7 @@ async function nameGuest(id){
 }
 // Deleting removes the photo from the studio for everyone (designers and admins). Slides that still
 // use it lose it, so the confirmation says where it is used.
-function canDeletePhotos(){ return !!(state.assets && state.assets.remove) && (!window.KH || ["admin", "designer"].includes(KH.role)); }
+function canDeletePhotos(){ return !!(state.assets && state.assets.remove) && (!window.KH || KH.canDesign); }
 async function deletePhoto(id){
   const uses = [];
   state.posts.forEach(p => { const n = (p.slides || []).filter(s => [s.img, s.img2, s.bgImg].some(r => r && r.id === id)).length + (p.bgImg && p.bgImg.id === id ? 1 : 0); if (n) uses.push(`${p.title} (${n})`); });
@@ -2828,7 +2843,7 @@ async function init(){
     if (!snap.metadata.fromCache){ clearTimeout(timer); state.stale = false; }
     applySnapshot(snap);
     if (first){ first = false;
-      const m = location.hash.match(/^#post=(.+)$/), tp = m && state.posts.get(decodeURIComponent(m[1]));
+      const m = location.hash.match(/^#post=(.+)$/), tp = m && [state.posts.get(decodeURIComponent(m[1]))].find(p => p && (!window.KH || KH.canSee(p)));
       if (tp){ state.fmt = tp.format || "carousel"; openPost(tp.id); } else { state.currentId = pickDefaultPost(); renderAll(); }
       setTimeout(khBackfill, 2500);
     }

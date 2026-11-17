@@ -31,20 +31,26 @@ export const STUDIOS = {
 
 export const ROLES = {
   admin: { label: "Admin", blurb: "Everything, plus adding people and changing roles" },
+  lead: { label: "Content lead", blurb: "Review and edit every design, set posts to Ready when they're approved, mark them posted" },
   designer: { label: "Designer", blurb: "Edit and download carousels and reel covers" },
   smm: { label: "Social media manager", blurb: "Edit and download reel covers, download carousels, mark posts as posted" },
+  poster: { label: "Content poster", blurb: "Sees only posts set to Ready, downloads them and marks them posted" },
   contributor: { label: "Contributor", blurb: "Write reel cover titles and hooks" },
   viewer: { label: "Viewer", blurb: "See what's coming up, download and comment" }
 };
 
 // Mirrors firestore.rules. The rules are what actually protect the data.
-const DESIGNS = ["admin", "designer"];
-const REELS = ["admin", "designer", "smm", "contributor"];
+const DESIGNS = ["admin", "lead", "designer"];
+const REELS = ["admin", "lead", "designer", "smm", "contributor"];
+// Content posters only work from finished posts: Ready ones to post, and the Posted ones they've done.
+const FINISHED = ["ready", "posted"];
 const fmtOf = p => (p && p.format) || "carousel";
 export const can = {
+  see: (role, post) => role !== "poster" || FINISHED.includes(post && post.status),
+  design: role => DESIGNS.includes(role),
   edit: (role, post) => DESIGNS.includes(role) || (REELS.includes(role) && fmtOf(post) === "reel"),
   create: (role, fmt) => DESIGNS.includes(role) || (REELS.includes(role) && fmt === "reel"),
-  markPosted: role => ["admin", "designer", "smm"].includes(role),
+  markPosted: (role, post) => ["admin", "lead", "designer", "smm"].includes(role) || (role === "poster" && FINISHED.includes(post && post.status)),
   resolve: (role, c, email) => REELS.includes(role) || (c && c.by === email),
   removeComment: (role, c, email) => role === "admin" || (c && c.by === email),
   team: role => role === "admin"
