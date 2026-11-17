@@ -477,8 +477,8 @@ const isMiddle = (p, x, j) => j > 0 && !x.isCover && x.layout !== "cta";
 const RT_BASE = ["sharp", "expo", "contr", "lift", "sat", "warm"];
 const RT_KEYS = [...RT_BASE, ...RT_BASE.map(k => k + "2")];
 // copying a style never copies an image: each slide keeps its own photos and background image
-const ALL_KEYS = [...LOOK_KEYS, "hideLabel", "chipPos", "bgDim", "topFade", ...RT_KEYS];
-const PLACE_KEYS = ["logoX","logoY","logoK","labelX","labelY","labelK","textX","textY","text2X","text2Y"];
+const ALL_KEYS = [...LOOK_KEYS, "hideLabel", "chipPos", "bgDim", "topFade", "scale2", ...RT_KEYS];
+const PLACE_KEYS = ["logoX","logoY","logoK","labelX","labelY","labelK","textX","textY","text2X","text2Y","chipAX","chipAY","chipBX","chipBY"];
 const presetKey = p => single(p) ? p.format : p.day;
 const presetLabel = key => key === "reel" ? "reel covers" : key === "quote" ? "quote cards" : `${DAYS[key] ? DAYS[key].name : key} carousels`;
 function lookOf(s){ const o = {}; LOOK_KEYS.forEach(k => { if (s[k] !== undefined) o[k] = s[k]; }); return clone(o); }
@@ -1024,7 +1024,9 @@ function drawHalf(ctx, p, s, t, which){
   const ref = which === 1 ? s.img : s.img2;
   const img = s.textOnly ? null : getImg(ref);
   const tag = which === 1 ? s.tag : s.tag2, text = which === 1 ? s.headline : s.text2;
-  const sc = s.scale || 1;
+  // each still has its own text size (scale2 for the bottom; unset, it follows the top) and its own guest chip
+  const sc = (which === 2 ? s.scale2 : null) ?? s.scale ?? 1;
+  const chip = which === 1 ? s.chip1 : s.chip, showChip = chip && String(chip.name || "").trim();
   ctx.save(); ctx.beginPath(); ctx.rect(0, y0, W, hh); ctx.clip();
   if (img){
     drawCover(ctx, img, 0, y0, W, hh, which === 1 ? s.fx : s.fx2, which === 1 ? s.fy : s.fy2, which === 1 ? s.zoom : s.zoom2, bwOf(p, s), rtOf(s, which));
@@ -1039,15 +1041,21 @@ function drawHalf(ctx, p, s, t, which){
     drawBase(ctx, which === 1 ? {...t, base: mix(t.base, "#ffffff", .06)} : t, 0, y0, W, hh);
   }
   const items = [];
-  if (which === 2 && hasChip(s)) items.push({k:"chip", chip:s.chip, gap:0});
   if (tag) items.push({k:"pill", text:tag, gap:22});
   if (text) items.push(headItem(s, text, (img ? 48 : 58)*sc, img ? 700 : 800, W - 2*M, 22));
   if (items.length) items[0].gap = 0;
-  const total = stackHeight(ctx, items);
+  const chipRoom = showChip ? 58 + (items.length ? 22 : 0) : 0;   // the chip sits above the text, as before
+  const total = stackHeight(ctx, items) + chipRoom;
   const bottom = which === 1 ? hh - 44 : H - SAFE_B;
   const top = img ? bottom - total : y0 + (hh - total)/2 + (which === 1 ? 36 : -20);
   if (TXT) TXT.key = which === 1 ? "text" : "text2";
-  drawStack(ctx, items, top, "center", W/2, t, !!img);
+  drawStack(ctx, items, top + chipRoom, "center", W/2, t, !!img);
+  // the chip moves on its own (chipAX/Y top, chipBX/Y bottom), not with the text
+  if (showChip){
+    const cw = chipW(ctx, chip);
+    khPush(ctx, s, which === 1 ? "chipA" : "chipB", {x: W/2 - cw/2, y: top, w: cw, h: 58});
+    drawChip(ctx, chip, W/2, top, "center", t); ctx.restore();
+  }
   ctx.restore();
 }
 function drawSplitLayout(ctx, p, s, t){
@@ -1797,7 +1805,8 @@ function inspSlide(){
     <div><span class="help">Highlighted words</span> ${seg("hlMode", [["same", "Same font as headline"], ["change", "Different font"]], (s.hlStyle || "same") === "same" ? "same" : "change")}</div>
     ${(s.hlStyle || "same") !== "same" ? `<div class="seg font-pick" data-seg="hlStyle">${hlFontChoices().map(([k, label, css]) => `<button type="button" data-v="${k}" class="${s.hlStyle === k ? "on" : ""}" style="${css}">${label}</button>`).join("")}</div>` : ""}
     ${slider("Highlight size", "hiScale", s.hiScale || 1, .8, 2.6, .01)}
-    ${slider("Text size", "scale", s.scale || 1, .7, 1.5, .01)}
+    ${slider(L === "split" ? "Top text size" : "Text size", "scale", s.scale || 1, .7, 1.5, .01)}
+    ${L === "split" ? slider("Bottom text size", "scale2", s.scale2 ?? s.scale ?? 1, .7, 1.5, .01) : ""}
     ${slider("Line spacing", "lh", s.lh || 1, .75, 1.6, .01)}
     ${slider("Letter spacing", "track", s.track || 0, -4, 14, .5)}
     <button type="button" class="link" data-act="reset-type" style="align-self:flex-start">Reset size and spacing</button>
@@ -1806,8 +1815,11 @@ function inspSlide(){
   </section>`);
   if (L === "photo" || L === "split"){
     parts.push(`<section class="grp"><h3>Guest chip</h3>
+      ${L === "split" ? `<span class="help"><b>Top still</b></span>
+      <div class="row2">${field("Name", "chip1.name", (s.chip1 || {}).name || "", {ph:"Who's speaking on top"})}${field("Title", "chip1.title", (s.chip1 || {}).title || "", {ph:"What they do"})}</div>
+      <span class="help"><b>Bottom still</b></span>` : ""}
       <div class="row2">${field("Name", "chip.name", s.chip.name, {ph:"Guest name"})}${field("Title", "chip.title", s.chip.title, {ph:"What they do"})}</div>
-      ${L === "photo" ? seg("chipPos", [["above", "Above text"], ["top-left", "Top left"], ["top-right", "Top right"]], s.chipPos) : `<p class="help">Shows on the bottom still.</p>`}
+      ${L === "photo" ? seg("chipPos", [["above", "Above text"], ["top-left", "Top left"], ["top-right", "Top right"]], s.chipPos) : `<p class="help">Each still shows its own name. Drag a name on the slide to move it on its own; Reset in Move &amp; resize puts it back.</p>`}
     </section>`);
   }
   if (reel){
@@ -2143,9 +2155,8 @@ let CHIP_AUTO = (() => { try { return localStorage.getItem("kh.chipAuto") !== "o
 function knownGuests(){
   const byId = {};
   [...state.posts.values()].sort((a, b) => (a.date || "").localeCompare(b.date || "")).forEach(p => (p.slides || []).forEach(s => {
-    if (!hasChip(s)) return;
-    const ref = s.layout === "split" ? s.img2 : s.img;
-    if (ref && ref.id) byId[ref.id] = {name: s.chip.name.trim(), title: String(s.chip.title || "").trim()};
+    const learn = (ref, c) => { if (ref && ref.id && c && String(c.name || "").trim()) byId[ref.id] = {name: String(c.name).trim(), title: String(c.title || "").trim()}; };
+    if (s.layout === "split"){ learn(s.img, s.chip1); learn(s.img2, s.chip); } else learn(s.img, s.chip);
   }));
   Object.entries(GUEST_NAMES).forEach(([id, g]) => { if (g && g.name) byId[id] = g; else delete byId[id]; });
   return byId;
@@ -2185,10 +2196,14 @@ async function deletePhoto(id){
 // after a photo is put on a slide: fill the guest chip with the photo's guest
 function autoChip(p, s, ref){
   if (!CHIP_AUTO || !s || !ref || !ref.id || p.format === "reel") return;
-  const chipRef = s.layout === "split" ? s.img2 : s.img; if (chipRef !== ref) return;
+  // on a two-stills slide the top photo fills the top chip (chip1), the bottom photo the bottom chip
+  const keys = s.layout === "split" ? [s.img === ref ? "chip1" : null, s.img2 === ref ? "chip" : null].filter(Boolean) : (s.img === ref ? ["chip"] : []);
+  if (!keys.length) return;
   const g = guestFor(ref.id); if (!g || !g.name) return;
-  const old = String(s.chip && s.chip.name || "").trim(); if (old === g.name) return;
-  s.chip = {name: g.name, title: g.title || ""};
+  const olds = keys.map(k => String(s[k] && s[k].name || "").trim()).filter(o => o && o !== g.name);
+  if (keys.every(k => String(s[k] && s[k].name || "").trim() === g.name)) return;
+  const old = olds[0] || "";
+  keys.forEach(k => { s[k] = {name: g.name, title: g.title || ""}; });
   toast(old ? `Guest chip changed from ${old} to ${g.name}. Undo to keep ${old}.` : `Guest chip set to ${g.name}.`);
 }
 function galleryPhotos(){
@@ -2492,7 +2507,7 @@ function wire(){
     const p = cur(); if (!p) return null; const r = cv.getBoundingClientRect();
     const x = (e.clientX - r.left) / r.width * W, y = (e.clientY - r.top) / r.height * postH(p);
     const ovKeys = Object.keys(HIT).filter(k => k.startsWith("ov:")).reverse();   // the top picture first
-    for (const key of ["logo", "label", ...ovKeys, "text", "text2"]){ const b = HIT[key]; if (b && x >= b.x - 12 && x <= b.x + b.w + 12 && y >= b.y - 12 && y <= b.y + b.h + 12) return key; }
+    for (const key of ["logo", "label", ...ovKeys, "chipA", "chipB", "text", "text2"]){ const b = HIT[key]; if (b && x >= b.x - 12 && x <= b.x + b.w + 12 && y >= b.y - 12 && y <= b.y + b.h + 12) return key; }
     return null;
   };
   stage.addEventListener("pointerdown", e => {
