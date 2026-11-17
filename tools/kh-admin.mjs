@@ -22,7 +22,7 @@ admin.initializeApp({ credential: admin.credential.cert(JSON.parse(fs.readFileSy
 const db = admin.firestore();
 
 const STUDIOS = ["kmp", "unbroken"];
-const ROLES = ["admin", "designer", "smm", "contributor", "viewer"];
+const ROLES = ["admin", "lead", "designer", "smm", "poster", "contributor", "viewer"];
 const CHUNK = 900 * 1024;
 const TYPES = { ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp" };
 
