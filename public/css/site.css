@@ -173,6 +173,31 @@ input:focus,select:focus{border-color:var(--navy);outline:none;box-shadow:0 0 0 
 .chip[data-s="posted"]{border-color:var(--line-2);background:var(--bg);color:var(--muted)}
 .empty{color:var(--muted);font-size:13px;padding:18px 10px}
 @media (max-width:560px){.item{grid-template-columns:54px minmax(0,1fr)}.item .acts{grid-column:2}}
+/* Missed posts and rescheduling */
+.missed{margin:10px 12px 4px;border:1px solid #F2C9C4;background:#FFF6F5;border-radius:12px;padding:4px 6px}
+.missed .item{border-top-color:#F2DCD9}
+.mi-head{display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;padding:10px 8px 8px}
+.mi-head b{color:var(--bad);font-size:13.5px}
+.mi-head span{color:var(--muted);font-size:12.5px;flex:1 1 260px}
+.dp.missed{background:#FBE3E0;color:var(--bad)}
+dialog.mv{max-width:min(520px, calc(100vw - 32px));width:100%;padding:22px;border:1px solid var(--line-2);box-shadow:0 30px 70px -20px rgba(0,20,50,.45);color:var(--fg)}
+dialog.mv::backdrop{background:rgba(0,24,52,.45)}
+dialog.mv h3{margin:0 0 6px;font-size:18px;font-weight:800;color:var(--navy);text-wrap:balance}
+dialog.mv > p{margin:0 0 14px;color:var(--muted);font-size:13.5px}
+.mv-opts{display:flex;flex-direction:column;gap:8px}
+.mv-opt{display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:left;background:var(--panel);border:1px solid var(--line-2);border-radius:10px;padding:12px 14px;font:inherit;color:var(--fg)}
+.mv-opt:hover:not([disabled]){border-color:var(--navy);box-shadow:0 0 0 1px var(--navy)}
+.mv-opt > b{font-size:14px;color:var(--navy)}
+.mv-opt > span{font-size:12.5px;color:var(--muted)}
+.mv-opt[disabled]{opacity:.6;cursor:not-allowed}
+.mv-list{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-direction:column;gap:4px;width:100%;font-size:12.5px;max-height:240px;overflow:auto}
+.mv-list li{display:flex;justify-content:space-between;gap:12px;padding:6px 8px;background:var(--bg);border-radius:7px}
+.mv-list li b{font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mv-list li span{color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+dialog.mv > .mv-list{margin-bottom:6px}
+.mv-foot{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom, 0px));background:var(--navy);color:#fff;
+  padding:10px 16px;border-radius:10px;font-size:13px;font-weight:600;box-shadow:0 16px 40px -12px rgba(0,20,50,.5);z-index:50;max-width:calc(100% - 32px)}
 
 /* upcoming: studio tabs and list / grid */
 .up-head{flex-wrap:wrap;row-gap:10px}
