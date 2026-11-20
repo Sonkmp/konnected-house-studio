@@ -148,6 +148,7 @@ export function sidebarHTML(s, current) {
     <nav class="sb-nav" aria-label="Site">
       <div class="sb-group">Overview</div>
       ${link("/", "home", "Home", ICONS.home)}
+      ${can.approve(s.role) ? link("/feed/", "feed", "Review feed", ICONS.check) : ""}
       <div class="sb-group">Studios</div>
       ${Object.values(STUDIOS).map(st => link(st.path, st.key, st.name, `<span class="sw" style="--c:${st.accent}"></span>`)).join("")}
       ${can.team(s.role) ? `<div class="sb-group">Admin</div>${link("/team/", "team", "Team", ICONS.team)}` : ""}

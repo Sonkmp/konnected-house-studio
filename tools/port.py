@@ -302,6 +302,56 @@ function renderAll(){ syncAccess(); renderList();''')
         '  fitCols(); // saved panel widths still leave the slide its minimum\n  if (window.__khOnStage) window.__khOnStage();\n  if (window.KH && (KH.role === "poster" || KH.role === "lead")) khSimpleStage();')
     rep('window.__khRefresh = () => {', 'window.__studio.goSlide = goSlide;\nwindow.__khRefresh = () => {')
 
+    # ---------- engine for the simple feed (js/feed.js) ----------
+    # The feed loads this page in a hidden frame (?engine=1) and asks it to draw posts, so what the
+    # content lead approves and the poster downloads is exactly what this studio exports.
+    rep('      setTimeout(khBackfill, 2500);\n    }',
+        '      setTimeout(khBackfill, 2500); khEngineReady();\n    }')
+    rep('  if (state.mode !== "db" || !window.KH) return;\n  const todo',
+        '  if (state.mode !== "db" || !window.KH || KH.engine) return;\n  const todo')
+    rep('window.__studio.goSlide = goSlide;\n', '''window.__studio.goSlide = goSlide;
+let khEngineReady; const khEngineLoaded = new Promise(r => { khEngineReady = r; });
+const khImgDone = im => im.complete ? Promise.resolve() : new Promise(r => { im.addEventListener("load", r, {once:true}); im.addEventListener("error", r, {once:true}); });
+const khPost = (id, data) => normPost(id, JSON.parse(JSON.stringify(data)));
+async function khSlide(p, i, type, q){
+  const s = p.slides[i]; if (!s) throw new Error("no slide");
+  await Promise.all([khImgDone(LOGO), khImgDone(MARK)]);
+  if (!type || type === "image/png") return renderToBlob(p, s, i);
+  await fontsReady; await Promise.all([loadImg(s.img), loadImg(s.img2), loadImg(s.bgImg), loadImg(p.bgImg), ...(s.ov || []).map(o => loadImg(o.img))]);
+  const c = document.createElement("canvas"); c.width = W; c.height = postH(p);
+  drawSlide(c.getContext("2d"), p, s, i, p.slides.length);
+  return await new Promise((res, rej) => c.toBlob(b => b ? res(b) : rej(new Error("render")), type, q));
+}
+window.__studio.engine = {
+  loaded: khEngineLoaded,
+  info(id, data){ const p = khPost(id, data); return {pillar: themeOf(p).pillar || "", name: fileBase(p), slides: p.slides.length, ratio: W / postH(p)}; },
+  // one slide as a Blob: PNG by default (the download), or e.g. "image/jpeg" for on-screen previews
+  slide: (id, data, i, type, q) => khSlide(khPost(id, data), i, type, q),
+  // every slide as PNG files, named like the studio's ZIP
+  async files(id, data, onStep){
+    const p = khPost(id, data), out = [], base = fileBase(p);
+    for (let i = 0; i < p.slides.length; i++){
+      if (onStep) onStep(i + 1, p.slides.length);
+      const s = p.slides[i];
+      out.push({name: single(p) ? `${base}.png` : `${base}_${pad2(i+1)}_${slug(s.tag || s.headline)}.png`, blob: await khSlide(p, i)});
+    }
+    return out;
+  },
+  // the same ZIP the studio's Download ZIP button builds: every slide plus caption.txt
+  async zip(id, data, onStep){
+    if (typeof JSZip === "undefined") throw new Error("zip");
+    const p = khPost(id, data), zip = new JSZip();
+    for (let i = 0; i < p.slides.length; i++){
+      if (onStep) onStep(i + 1, p.slides.length);
+      const s = p.slides[i];
+      zip.file(`${pad2(i+1)}_${slug(s.tag || s.headline)}.png`, await khSlide(p, i));
+    }
+    if (p.caption) zip.file("caption.txt", p.caption);
+    return {name: fileBase(p) + ".zip", blob: await zip.generateAsync({type:"blob"})};
+  }
+};
+''')
+
     out_dir = os.path.join(ROOT, "public", key)
     os.makedirs(out_dir, exist_ok=True)
     open(os.path.join(out_dir, "index.html"), "w", encoding="utf8").write(src)

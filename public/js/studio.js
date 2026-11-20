@@ -9,7 +9,15 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
 const studio = document.querySelector('meta[name="kh-studio"]').content;
+// ?engine=1: the simple feed (js/feed.js) loads this page in a hidden frame to draw slides
+const engine = new URLSearchParams(location.search).has("engine");
 const s = await requireMember();
+// The content lead and the content poster work from the feed, not the studio.
+if (!engine && (s.role === "lead" || s.role === "poster")) {
+  const m = location.hash.match(/^#post=(.+)$/);
+  location.replace("/feed/#" + studio + (m ? "/" + m[1] : ""));
+  await new Promise(() => {});
+}
 
 const nav = document.getElementById("khNav");
 nav.innerHTML = navHTML(s, studio);
@@ -34,7 +42,7 @@ onSnapshot(collection(db, "studios", studio, "assets"), snap => {
 
 const fmtKey = "kh.fmt." + studio;
 window.KH = {
-  studio, role: s.role, email: s.email, name: s.name,
+  studio, role: s.role, email: s.email, name: s.name, engine,
   canEdit: post => can.edit(s.role, post),
   canSee: post => can.see(s.role, post),
   canDesign: can.design(s.role),
@@ -94,4 +102,4 @@ const api = {
 
 document.title = `${STUDIOS[studio].name} · Konnected House`;
 window.__khResolve({ use: async name => api[name] || null });
-startComments(studio, s);
+if (!engine) startComments(studio, s);

@@ -20,6 +20,8 @@ const s = await session();
 if (!s) showLogin();
 else if (!s.role) { $("#naEmail").textContent = s.email; $("#noAccess").hidden = false; }
 else if (safeNext) location.replace(safeNext);
+// the content lead and the content poster work from the simple feed
+else if (s.role === "lead" || s.role === "poster") location.replace("/feed/");
 else showHome(s);
 
 function showLogin() {
