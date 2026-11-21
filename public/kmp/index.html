@@ -308,6 +308,7 @@ label.btn{cursor:pointer}
 
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
 <link rel="stylesheet" href="/css/studio-theme.css">
+<link rel="stylesheet" href="/css/igpreview.css">
 <style>
 .chip-st[data-s="review"]{color:#F5B83D;border-color:color-mix(in srgb,#F5B83D 50%,transparent);background:color-mix(in srgb,#F5B83D 10%,transparent)}
 html[data-kh-simple] .post-head .meta-row, html[data-kh-simple] .post-head .guest-f,
@@ -1563,6 +1564,7 @@ function renderStage(){
       </span>
       <button class="btn ghost sm" id="compactBtn" aria-pressed="${state.compact}" title="${state.compact ? "Show pillar, date, status and guest" : "Hide pillar, date, status and guest to give the slide more room"}">${state.compact ? "Show details" : "Hide details"}</button>
       <span class="grow"></span>
+      <button class="btn" id="igPreviewBtn" type="button" title="See the post the way it will look on Instagram"><svg class="kh-ic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M10.5 18.5h3"/></svg> Preview</button>
       ${reel ? `<button class="btn primary" id="dlSlide">Download ${p.format === "quote" ? "card" : "cover"} (PNG)</button>` : `<button class="btn" id="dlSlide" title="Download this slide (PNG)">Download this slide</button>
       <button class="btn primary" id="dlZip">Download ZIP</button>`}
     </div>

@@ -1,0 +1,80 @@
+/* Instagram preview (js/igpreview.js): the post as it will look on Instagram, light or dark like the phone.
+   Phones get it full screen; bigger screens get a phone-width post over the dimmed studio. */
+.igp{--ig-bg:#fff;--ig-fg:#000;--ig-dim:#737373;--ig-line:#DBDBDB;--ig-dot:#A8A8A8;--ig-dot-on:#0095F6;--ig-link:#00376B;
+  position:fixed;inset:0;z-index:1000;background:var(--ig-bg);color:var(--ig-fg);display:flex;flex-direction:column;overflow-y:auto;
+  overscroll-behavior:contain;-webkit-tap-highlight-color:transparent;
+  font:14px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  animation:igpin .18s ease-out}
+@media (prefers-color-scheme:dark){
+  .igp{--ig-bg:#000;--ig-fg:#F5F5F5;--ig-dim:#A8A8A8;--ig-line:#262626;--ig-dot:#555;--ig-link:#E0F1FF}
+}
+@keyframes igpin{from{opacity:0}to{opacity:1}}
+html.igp-on,html.igp-on body{overflow:hidden}
+.igp button{font:inherit;color:inherit;cursor:pointer}
+
+.igp-top{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:6px;padding:6px 8px;background:var(--ig-bg);border-bottom:1px solid var(--ig-line)}
+.igp-x{width:44px;height:44px;display:grid;place-items:center;background:none;border:0;border-radius:50%;flex:none}
+.igp-x svg{width:24px;height:24px}
+.igp-title{display:flex;flex-direction:column;line-height:1.25;min-width:0}
+.igp-title b{font-size:16px}
+.igp-title span{font-size:12.5px;color:var(--ig-dim)}
+
+.igp-post{width:100%;margin:0 auto}
+.igp-head{display:flex;align-items:center;gap:10px;padding:10px 4px 10px 12px}
+.igp-av{width:34px;height:34px;border-radius:50%;padding:2px;flex:none;background:conic-gradient(from 210deg,#FEDA75,#FA7E1E,#D62976,#962FBF,#4F5BD5,#FEDA75)}
+.igp-av img{width:100%;height:100%;border-radius:50%;display:block;object-fit:contain;background:#0A0D24;border:2px solid var(--ig-bg);box-sizing:border-box}
+html[data-studio="unbroken"] .igp-av img{background:#0D0D0D}
+.igp-head b{flex:1;font-size:14px;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.igp-ic{width:40px;height:40px;display:grid;place-items:center;flex:none}
+.igp-ic svg{width:24px;height:24px}
+.igp-dim{color:var(--ig-fg)}
+
+.igp-media{position:relative;width:100%;aspect-ratio:var(--ar);background:#111;overflow:hidden}
+.igp-track{position:absolute;inset:0;display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scrollbar-width:none;
+  overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;outline:none}
+.igp-track::-webkit-scrollbar{display:none}
+.igp-track:focus-visible{box-shadow:inset 0 0 0 3px #0095F6}
+.igp-slide{flex:0 0 100%;height:100%;margin:0;scroll-snap-align:start;scroll-snap-stop:always;position:relative}
+.igp-slide img{width:100%;height:100%;display:block;object-fit:cover;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.igp-slide img:not([src]){visibility:hidden}
+.igp-slide.wait::after{content:"";position:absolute;inset:0;margin:auto;width:28px;height:28px;border-radius:50%;
+  border:3px solid rgba(255,255,255,.25);border-top-color:#fff;animation:igpspin .9s linear infinite}
+.igp-slide.fail::after{content:"This slide couldn't be drawn. Close the preview and try again.";position:absolute;inset:auto 20px 48%;text-align:center;color:#fff;font-weight:600}
+@keyframes igpspin{to{transform:rotate(360deg)}}
+.igp-count{position:absolute;top:12px;right:12px;background:rgba(18,18,18,.7);color:#fff;font-size:12px;font-weight:600;padding:3px 9px;border-radius:99px;pointer-events:none}
+.igp-arrow{position:absolute;top:50%;transform:translateY(-50%);width:30px;height:30px;border-radius:50%;border:0;padding:0;background:rgba(255,255,255,.85);color:#262626 !important;
+  display:grid;place-items:center;box-shadow:0 1px 6px rgba(0,0,0,.25)}
+.igp-arrow svg{width:16px;height:16px}
+.igp-arrow.prev{left:10px}
+.igp-arrow.next{right:10px}
+.igp-arrow[hidden]{display:none}
+@media (pointer:coarse){ .igp-arrow{display:none} }
+
+.igp-acts{display:flex;align-items:center;padding:4px 4px 0;position:relative;min-height:46px}
+.igp-dots{position:absolute;left:50%;transform:translateX(-50%);display:flex;gap:4px}
+.igp-dots i{width:6px;height:6px;border-radius:50%;background:var(--ig-dot);transition:background .15s}
+.igp-dots i.on{background:var(--ig-dot-on)}
+.igp-save{margin-left:auto}
+
+.igp-cap{padding:2px 14px 0}
+.igp-cap p{margin:0;white-space:pre-line;overflow-wrap:anywhere}
+.igp-cap b{font-weight:600}
+.igp-tag{color:var(--ig-link)}
+.igp-more{background:none;border:0;padding:0;color:var(--ig-dim) !important}
+.igp-none{color:var(--ig-dim)}
+.igp-date{margin:6px 14px 18px;font-size:12px;color:var(--ig-dim)}
+
+/* bigger screens: a phone-width post in the middle, sized so all of it fits on screen */
+@media (min-width:600px){
+  .igp{background:rgba(0,0,0,.72);padding:24px 16px;align-items:center}
+  .igp-top{position:fixed;top:0;left:0;right:0;background:none;border:0;padding:12px 16px;justify-content:space-between;flex-direction:row-reverse;color:#fff}
+  .igp-title b{color:#fff}
+  .igp-title span{color:rgba(255,255,255,.75)}
+  .igp-x{background:rgba(255,255,255,.14)}
+  .igp-x:hover{background:rgba(255,255,255,.24)}
+  .igp-post{width:clamp(320px,calc((100dvh - 240px) * var(--ar)),470px);margin:auto;background:var(--ig-bg);border-radius:8px;overflow:hidden;
+    box-shadow:0 30px 80px rgba(0,0,0,.5)}
+  .igp-cap p{max-height:40vh;overflow-y:auto}
+}
+@media (prefers-reduced-motion:reduce){ .igp{animation:none} .igp-slide.wait::after{animation-duration:3s} }

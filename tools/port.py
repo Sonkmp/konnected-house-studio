@@ -288,6 +288,14 @@ function renderAll(){ syncAccess(); renderList();''')
     # who may delete photos comes from the site's roles (content leads, designers, admins)
     rep('(!window.KH || ["admin", "designer"].includes(KH.role))', '(!window.KH || KH.canDesign)')
 
+    # ---------- Instagram preview (js/igpreview.js) ----------
+    rep('      <span class="grow"></span>\n      ${reel ?',
+        '      <span class="grow"></span>\n'
+        '      <button class="btn" id="igPreviewBtn" type="button" title="See the post the way it will look on Instagram">'
+        '<svg class="kh-ic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true">'
+        '<rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M10.5 18.5h3"/></svg> Preview</button>\n      ${reel ?')
+    rep('<link rel="stylesheet" href="/css/studio-theme.css">\n', '<link rel="stylesheet" href="/css/studio-theme.css">\n<link rel="stylesheet" href="/css/igpreview.css">\n')
+
     # icon-only buttons on narrow screens keep a tooltip
     rep('<button class="btn" id="dlSlide">Download this slide</button>', '<button class="btn" id="dlSlide" title="Download this slide (PNG)">Download this slide</button>')
 

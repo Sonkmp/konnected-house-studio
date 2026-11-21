@@ -103,3 +103,4 @@ const api = {
 document.title = `${STUDIOS[studio].name} · Konnected House`;
 window.__khResolve({ use: async name => api[name] || null });
 if (!engine) startComments(studio, s);
+if (!engine) import("./igpreview.js");
