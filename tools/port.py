@@ -44,6 +44,8 @@ html[data-kh-simple] #preview, html[data-kh-simple] .title-input{pointer-events:
 .kh-post-panel .kpp-row .btn{flex:1;justify-content:center}
 .kh-lowres{margin:0 auto 10px;max-width:640px;padding:9px 13px;border-radius:10px;background:rgba(245,184,61,.12);border:1px solid rgba(245,184,61,.5);color:#F7D79B;font-size:12.5px;line-height:1.45;text-align:left}
 .kh-lowres b{color:#F5B83D}
+.viewer-foot .kh-delslide{margin-left:4px;padding:3px 10px;font-size:12px}
+html[data-kh-simple] .kh-delslide{display:none !important}
 </style>
 """
 
@@ -389,6 +391,22 @@ function khShowRes(){
   const need = Math.ceil(r.iw * r.sc / 100) * 100;
   el.innerHTML = `<b>${r.sc > 2 ? "Blurry photo" : "Soft photo"}:</b> it’s ${r.iw}×${r.ih} px, stretched ${r.sc.toFixed(1)}× to fill this frame, so it will look pixelated. Use a photo at least ${need} px wide (a full-size image or video frame, not a screenshot of a thumbnail).`;
 }
+function renderPreview(){""")
+
+    # ---------- delete a slide from right under it ----------
+    # The Delete button also sits deep in the Slide settings; this one is where people look for it.
+    rep('`Slide ${state.slideIdx+1} of ${n}`}</span>',
+        '`Slide ${state.slideIdx+1} of ${n}`}</span>${!reel && n > 1 && !state.readOnly ? `<button type="button" class="btn sm danger kh-delslide" data-kh-delslide title="Delete this slide">Delete slide</button>` : ""}')
+    rep('function renderPreview(){', """// Two clicks, like the Delete button in the settings: the first asks, the second deletes.
+document.addEventListener("click", e => {
+  const b = e.target.closest && e.target.closest("[data-kh-delslide]"); if (!b) return;
+  const p = cur(); if (!p || state.readOnly) return;
+  if (p.slides.length <= 1){ toast("A post needs at least one slide."); return; }
+  if (!b.dataset.armed){ b.dataset.armed = "1"; b.textContent = "Click again to delete"; clearTimeout(b._t); b._t = setTimeout(() => { if (b.isConnected){ delete b.dataset.armed; b.textContent = "Delete slide"; } }, 3500); return; }
+  const n = state.slideIdx + 1;
+  p.slides.splice(state.slideIdx, 1); state.slideIdx = Math.min(state.slideIdx, p.slides.length - 1); state.confirm = null;
+  renderStage(); renderInspector(); touch(p.id); toast(`Slide ${n} deleted.`);
+});
 function renderPreview(){""")
 
     out_dir = os.path.join(ROOT, "public", key)
