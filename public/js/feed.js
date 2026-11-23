@@ -70,6 +70,7 @@ for (const k of Object.keys(STUDIOS)) {
   onSnapshot(collection(db, "studios", k, "comments"), snap => {
     comments[k] = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => a.createdAt - b.createdAt);
     paintCounts(); if (sheet.open) renderSheetList();
+    if (mode === "review" && !firstPaint) render();   // a new comment moves the card out of the main feed
   }, () => { /* the feed works without comments */ });
 }
 const openComments = (k, id) => comments[k].filter(c => c.postId === id && !c.resolved);
@@ -149,10 +150,15 @@ function info(k, p) {
 
 /* ---------- what each person sees ---------- */
 const unposted = k => [...posts[k].values()].filter(p => p.status !== "posted");
+// The reviewer's last open comment on a post; once they comment, the post waits on the designer
+// (out of the main feed) until the designer saves a change after it.
+const myLast = (k, p) => { let t = 0; for (const c of comments[k]) if (c.postId === p.id && !c.resolved && c.by === s.email && (c.createdAt || 0) > t) t = c.createdAt; return t; };
+const waiting = (k, p) => { const t = myLast(k, p); return !!t && t > (p.updatedAt || 0); };
 function reviewLists(k, f) {
   const list = unposted(k).filter(p => fmtOf(p) === f).sort(byDate);
   return {
-    review: list.filter(p => p.status === "review"),
+    review: list.filter(p => p.status === "review" && !waiting(k, p)),
+    commented: list.filter(p => p.status === "review" && waiting(k, p)),
     approved: list.filter(p => p.status === "ready"),
     design: list.filter(p => !p.status || p.status === "draft")
   };
@@ -160,7 +166,7 @@ function reviewLists(k, f) {
 const toPost = k => [...posts[k].values()].filter(p => p.status === "ready").sort(byDate);
 const postedLately = k => [...posts[k].values()].filter(p => p.status === "posted" && (p.date >= addDays(today, -7) || (p.postedAt || 0) > Date.now() - 7 * 864e5))
   .sort((a, b) => (b.postedAt || 0) - (a.postedAt || 0) || (b.date || "").localeCompare(a.date || ""));
-const badgeOf = k => mode === "review" ? unposted(k).filter(p => p.status === "review").length : toPost(k).length;
+const badgeOf = k => mode === "review" ? unposted(k).filter(p => p.status === "review" && !waiting(k, p)).length : toPost(k).length;
 const formatsOf = k => FORMATS.filter(([f]) => f !== "reel" || unposted(k).some(p => fmtOf(p) === "reel"));
 
 /* ---------- page ---------- */
@@ -227,6 +233,7 @@ function reviewHTML() {
   const empty = `<div class="fd-done">${IC.done}<b>All caught up</b><span>No ${esc(STUDIOS[studio].show)} ${label} waiting for your review.</span></div>`;
   return `<div class="fd-feed">
     ${L.review.length ? L.review.map(p => card(studio, p)).join("") : empty}
+    ${L.commented.length ? section("commented", "Commented · waiting on the designer", L.commented) : ""}
     ${L.approved.length ? section("approved", "Approved · with the poster", L.approved) : ""}
     ${L.design.length ? section("design", "Still with the designer", L.design) : ""}
   </div>`;
@@ -270,7 +277,7 @@ function card(k, p) {
     <header class="fd-ch">
       <img class="fd-av" src="${markOf(k)}" alt="">
       <div class="fd-who"><b>${esc(STUDIOS[k].show)}</b><span>${esc(dateLabel(p.date))}${inf.pillar ? ` · ${esc(inf.pillar)}` : ""}</span></div>
-      ${whenChip(p)}
+      ${whenChip(p)}${myLast(k, p) && !waiting(k, p) && p.status === "review" ? `<span class="fd-when today" title="The designer changed it after your comment">Updated</span>` : ""}
     </header>
     <div class="fd-media" style="aspect-ratio:${inf.ratio || 0.75}">
       ${n ? `<div class="fd-track" data-track tabindex="0" role="group" aria-roledescription="carousel" aria-label="${n} slide${n > 1 ? "s" : ""}. Swipe or use the arrow keys.">${slides}</div>` : `<p class="fd-noslides">No slides yet</p>`}
@@ -307,7 +314,7 @@ function postHTML() {
   const group = (title, sub, arr) => arr.length ? `<section class="fd-grp"><h2 class="fd-h">${esc(title)}${sub ? ` <span>${esc(sub)}</span>` : ""}</h2>${arr.map(p => job(studio, p)).join("")}</section>` : "";
   const key = `${studio}:posted`;
   return `<div class="fd-list">
-    <ol class="fd-how" aria-label="How to post"><li><b>1</b>Download</li><li><b>2</b>Post on Instagram</li><li><b>3</b>Mark posted</li></ol>
+    <ol class="fd-how" aria-label="How to post"><li><b>1</b>Download</li><li><b>2</b>Post on Instagram</li><li><b>3</b>Done: downloading marks it posted</li></ol>
     ${list.length ? group("Overdue", "post these first", late) + group("Today", dateLabel(today), now) + group("Coming up", "", soon)
       : `<div class="fd-done">${IC.done}<b>Nothing to post right now</b><span>Posts show up here as soon as they're approved.</span></div>`}
     ${done.length ? `<details class="fd-sec" data-sec="${key}"${openSecs.has(key) ? " open" : ""}><summary><span>Posted · last 7 days</span><span class="n">${done.length}</span>${IC.chev}</summary>
@@ -326,7 +333,8 @@ function job(k, p) {
       ${posted ? `<span class="fd-ok">${IC.check}${esc(at || "Posted")}</span>` : p.caption ? `<button type="button" class="fd-link" data-copy>Copy caption</button>` : `<span class="fd-warn">No caption yet</span>`}
     </div>
     <div class="fd-jb">
-      ${posted ? `<button type="button" class="btn" data-posted="0">Undo</button>`
+      ${posted ? `<button type="button" class="btn" data-dl>${IC.down}<span>Download again</span></button>
+           <button type="button" class="btn" data-posted="0">Undo</button>`
         : `<button type="button" class="btn${got ? "" : " primary"}" data-dl>${IC.down}<span>${got ? "Download again" : "Download"}</span></button>
            <button type="button" class="btn${got ? " primary" : ""}" data-posted="1">${IC.check}<span>Mark posted</span></button>`}
     </div>
@@ -378,7 +386,7 @@ function focusPost(retry) {
   if (!el && p && mode === "review" && !retry && p.status !== "posted") {
     // it's in another tab or a folded section: open it there
     tab = fmtOf(p); opened.add(`${studio}/${focusId}`);
-    const L = reviewLists(studio, tab); const sec = L.approved.includes(p) ? "approved" : L.design.includes(p) ? "design" : null;
+    const L = reviewLists(studio, tab); const sec = L.commented.includes(p) ? "commented" : L.approved.includes(p) ? "approved" : L.design.includes(p) ? "design" : null;
     if (sec) openSecs.add(`${studio}:${tab}:${sec}`);
     render();
     return setTimeout(() => focusPost(true), 0);
@@ -510,10 +518,14 @@ async function download(btn, k, p) {
     toast("Couldn't prepare the download. A photo may not have loaded. Try again.");
   }
   function reset() { busy.delete(key); btn.disabled = false; btn.classList.remove("busy"); say("Download"); }
+  // Downloading means it's going up, so it's marked posted straight away (Joseph, 23 Nov); Undo puts it back.
   function done(shared) {
     busy.delete(key); downloaded.add(key);
-    toast(shared ? (p.caption ? "Saved to your phone. The caption is copied, so paste it in Instagram." : "Saved to your phone.")
-      : (p.caption ? "Downloaded. The caption is in caption.txt, and it's copied too." : "Downloaded."));
+    const was = (posts[k].get(p.id) || p).status, mark = was !== "posted";
+    if (mark) setStatus(null, k, posts[k].get(p.id) || p, "posted", true);
+    const what = shared ? "Saved to your phone" : "Downloaded";
+    const cap = p.caption ? (shared ? " The caption is copied, so paste it in Instagram." : " The caption is in caption.txt, and it's copied too.") : "";
+    toast(`${what}${mark ? " and marked as posted." : "."}${cap}`, mark ? { label: "Undo", run: () => setStatus(null, k, posts[k].get(p.id) || p, was, true) } : undefined);
     render();
   }
 }
