@@ -1326,6 +1326,44 @@ function kmpIcons(ctx, x, cy, ink){
   ctx.restore();
   return cx + 17 - x;
 }
+// The guest's name on the quote card photo: the verified mark, the name, and under it the line that says
+// why to listen ("$1B fund manager"). Two lines so long credibility titles still fit. Draggable ("chipA").
+function khQuoteChip(ctx, s, t, x0, x1, pb){
+  const c = s.chip || {}, name = String(c.name || "").trim(), title = String(c.title || "").trim(); if (!name) return;
+  const F = "Montserrat", maxW = x1 - x0 - 64, mark = 22, pad = 18, gap = 12;
+  let ns = 26, ts = 19;
+  const fit = () => { ctx.font = `700 ${ns}px ${F}, system-ui, sans-serif`; const nw = ctx.measureText(name).width;
+    ctx.font = `500 ${ts}px ${F}, system-ui, sans-serif`; const tw = title ? ctx.measureText(title).width : 0; return Math.max(nw, tw); };
+  let tw = fit(); while (pad + mark + gap + tw + pad > maxW && ts > 15){ ns -= 1; ts -= 1; tw = fit(); }
+  const w = Math.min(maxW, pad + mark + gap + tw + pad + 4), h = title ? 80 : 56, r = 18;
+  const x = x1 - 30 - w, y = pb - 44 - h;
+  khPush(ctx, s, "chipA", {x, y, w, h});
+  shadowOn(ctx, false);
+  // frosted glass: the photo behind the chip, blurred (shrunk and scaled back up, which works in every browser)
+  try {
+    const m = ctx.getTransform(), k = Math.hypot(m.a, m.b), M = 24;
+    const dx = Math.round(m.a * (x - M) + m.e), dy = Math.round(m.d * (y - M) + m.f), dw = Math.round((w + 2*M) * k), dh = Math.round((h + 2*M) * k);
+    const small = document.createElement("canvas"); small.width = Math.max(1, Math.round(dw / 14)); small.height = Math.max(1, Math.round(dh / 14));
+    const sx = small.getContext("2d"); sx.imageSmoothingEnabled = true; sx.imageSmoothingQuality = "high";
+    sx.drawImage(ctx.canvas, dx, dy, dw, dh, 0, 0, small.width, small.height);
+    ctx.save(); rr(ctx, x, y, w, h, r); ctx.clip(); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(small, x - M, y - M, w + 2*M, h + 2*M); ctx.restore();
+  } catch(e){ /* the plain tint below still reads */ }
+  rr(ctx, x, y, w, h, r);
+  const g = ctx.createLinearGradient(x, y, x, y + h); g.addColorStop(0, "rgba(255,255,255,.22)"); g.addColorStop(1, "rgba(255,255,255,.08)");
+  ctx.fillStyle = "rgba(10,14,34,.30)"; ctx.fill(); ctx.fillStyle = g; ctx.fill();
+  ctx.strokeStyle = "rgba(255,255,255,.45)"; ctx.lineWidth = 1.4; ctx.stroke();
+  const cx = x + pad + mark/2, cy = y + (title ? 29 : h/2);
+  ctx.beginPath(); ctx.arc(cx, cy, mark/2, 0, Math.PI*2); ctx.fillStyle = t.box || t.accent; ctx.fill();
+  ctx.beginPath(); ctx.moveTo(cx-5, cy+0.5); ctx.lineTo(cx-1.5, cy+4); ctx.lineTo(cx+5.5, cy-3.5);
+  ctx.strokeStyle = "#FFFFFF"; ctx.lineWidth = 2.6; ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.stroke();
+  const tx = cx + mark/2 + gap;
+  ctx.shadowColor = "rgba(0,0,0,.35)"; ctx.shadowBlur = 6;
+  ctx.textAlign = "left"; ctx.fillStyle = "#FFFFFF"; ctx.font = `700 ${ns}px ${F}, system-ui, sans-serif`; ctx.fillText(name, tx, cy + ns*0.35);
+  if (title){ ctx.fillStyle = "rgba(255,255,255,.88)"; ctx.font = `500 ${ts}px ${F}, system-ui, sans-serif`; ctx.fillText(title, tx, y + h - 19); }
+  ctx.shadowBlur = 0; ctx.shadowColor = "transparent";
+  ctx.restore();
+}
 function drawQuoteKmp(ctx, p, s, t){
   const T = kmpTpl(s), bg = s.fadeColor || T.frame, accent = s.boxColor || T.accent, sc = s.scale || 1;
   t.hi = accent; t.box = accent;
@@ -1359,17 +1397,20 @@ function drawQuoteKmp(ctx, p, s, t){
   }
   // words: quote mark, quote (shrinks to fit), rule, name and title
   const left = s.align !== "center", tx = left ? x0 + 70 : W/2, maxW = x1 - x0 - 140;
-  const markTop = pb + 54, textTop = markInCircle ? pb + 112 : markTop + 104, nameH = (s.chip && s.chip.name ? 44 : 0) + (s.chip && s.chip.title ? 38 : 0);
+  const onPhoto = !s.nameBelow && s.chip && String(s.chip.name || "").trim();   // the name sits on the photo unless asked otherwise
+  const markTop = pb + 54, textTop = markInCircle ? pb + 112 : markTop + 104, nameH = onPhoto ? 0 : (s.chip && s.chip.name ? 44 : 0) + (s.chip && s.chip.title ? 38 : 0);
   const room = y1 - 60 - textTop - (nameH ? 48 + 5 + 34 + nameH : 0);
   if (!markInCircle){ // no circle: the quote mark sits above the words instead
     ctx.fillStyle = accent; ctx.font = `400 230px "DM Serif Display", Georgia, serif`; ctx.textAlign = left ? "left" : "center";
     ctx.fillText("“", left ? tx - 8 : tx, markTop + 172); ctx.textAlign = "left";
   }
+  if (onPhoto) khQuoteChip(ctx, s, t, x0, x1, pb);
   const q = (s.headline || "").trim().replace(/^["“]|["”]$/g, "");
   let y = textTop;
   if (q){
     let size = 60 * sc, it, h;
     do { it = headItem(s, q, size, 700, maxW, 0); it.color = s.textColor || T.ink; h = stackHeight(ctx, [it]); size -= 2; } while (h > room && size > 30);
+    if (onPhoto) y = textTop + Math.max(0, (room - h) / 2);   // with the name on the photo, the quote sits in the middle of the panel
     khPush(ctx, s, "text", {x: left ? tx : tx - maxW/2, y, w: maxW, h});   // drag to move
     drawStack(ctx, [it], y, left ? "left" : "center", tx, t, false); ctx.restore(); y += h;
   }
@@ -1405,6 +1446,7 @@ function inspQuoteKmp(p, s){
       <p class="help">Write the guest's exact words. Long quotes shrink to fit. Select words and click Colour to highlight them.</p>
       ${field("The quote", "headline", s.headline, {area:true, rows:4, fmt:true})}
       <div class="row2">${field("Name", "chip.name", s.chip.name, {ph:"Guest name"})}${field("Title", "chip.title", s.chip.title, {ph:"What they do"})}</div>
+      <label class="toggle"><input type="checkbox" data-k="nameBelow" ${s.nameBelow ? "checked" : ""}> Put the name under the quote (off: on the photo, with the mark)</label>
       ${field("Handle", "handle", s.handle, {ph:"@konnectedminds"})}
     </section>
     <section class="grp"><h3>Move</h3>
