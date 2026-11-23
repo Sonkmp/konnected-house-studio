@@ -910,7 +910,7 @@ function textItems(s, t, big){
   if (s.tag) items.push({k:"tag", text:s.tag, gap:26});
   if (s.headline) items.push(headItem(s, s.headline, (big ? (IS_REEL ? 108 : 86) : 64)*sc, big ? 800 : 700, W - 2*M, s.tag ? 18 : 30));
   if (s.sub) items.push({k:"rich", text:s.sub, size:30*sc, weight:500, maxW: left ? W-2*M : W - 2*M - 60, lh:1.22*(s.lh||1), color:"rgba(255,255,255,.84)", gap:24});
-  if (s.isCover && !left && s.coverArrow !== false) items.push({k:"arrow", gap:36});
+  if (s.isCover && s.coverArrow !== false) items.push({k:"arrow", gap:36});   // left-aligned covers get it too, under the text at the left margin
   if (items.length) items[0].gap = 0;
   return items;
 }
