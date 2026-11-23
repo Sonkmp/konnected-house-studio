@@ -332,6 +332,8 @@ html[data-kh-simple] #preview, html[data-kh-simple] .title-input{pointer-events:
 .kh-post-panel .kpp-state[data-s="draft"] i{background:var(--muted)}
 .kh-post-panel .kpp-row{display:flex;gap:8px}
 .kh-post-panel .kpp-row .btn{flex:1;justify-content:center}
+.kh-lowres{margin:0 auto 10px;max-width:640px;padding:9px 13px;border-radius:10px;background:rgba(245,184,61,.12);border:1px solid rgba(245,184,61,.5);color:#F7D79B;font-size:12.5px;line-height:1.45;text-align:left}
+.kh-lowres b{color:#F5B83D}
 </style>
 </head><body>
 <div class="app">
@@ -802,6 +804,7 @@ function retouchUI(p, s, slot){
 function drawCover(ctx, img, x, y, w, h, fx, fy, zoom, bw, r){
   const iw = img.naturalWidth, ih = img.naturalHeight; if (!iw || !ih) return;
   const sc = Math.max(w/iw, h/ih) * (zoom || 1);
+  if (ctx.canvas && ctx.canvas.id === "preview") khNoteRes(iw, ih, sc);
   const sw = w/sc, sh = h/sc;
   const sx = clamp((iw - sw) * (fx ?? .5), 0, Math.max(0, iw - sw));
   const sy = clamp((ih - sh) * (fy ?? .5), 0, Math.max(0, ih - sh));
@@ -816,7 +819,7 @@ function drawCover(ctx, img, x, y, w, h, fx, fy, zoom, bw, r){
   ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
   if (bw){
     try {
-      const X = Math.round(x), Y = Math.round(y), d = ctx.getImageData(X, Y, Math.round(w), Math.round(h)), a = d.data;
+      const m = ctx.getTransform(), X = Math.round(m.a * x + m.e), Y = Math.round(m.d * y + m.f), d = ctx.getImageData(X, Y, Math.round(w * m.a), Math.round(h * m.d)), a = d.data;
       for (let i = 0; i < a.length; i += 4){ const v = a[i]*.299 + a[i+1]*.587 + a[i+2]*.114; a[i]=a[i+1]=a[i+2]=v; }
       ctx.putImageData(d, X, Y);
     } catch(e){}
@@ -1189,7 +1192,7 @@ function ovSection(p, s){
 }
 function ovFmt(f, v){ return f === "r" || f === "sw" ? `${Math.round(v)}px` : f === "rot" ? `${v}°` : `${Math.round(v * 100)}%`; }
 function drawSlide(ctx, p, s, i, n){
-  TXT = null; if (ctx.canvas && ctx.canvas.id === "preview") HIT = {};
+  TXT = null; if (ctx.canvas && ctx.canvas.id === "preview"){ HIT = {}; KH_RES = null; }
   H = postH(p); IS_REEL = p.format === "reel";
   // a reel cover is a single image: no layouts, labels, arrows or counters
   if (IS_REEL){ s = Object.assign({}, s, {layout:"photo", isCover:true, coverArrow:false, hideLabel:!s.reelLabel, arrow:false}); i = 0; n = 1; }
@@ -1571,11 +1574,22 @@ function scheduleRender(withThumbs){
   if (!rafId) rafId = requestAnimationFrame(() => { rafId = 0; renderPreview(); });
   if (withThumbs){ clearTimeout(thumbTimer); thumbTimer = setTimeout(renderThumbs, 160); }
 }
+const KH_EXPORT_SCALE = 2;
+let KH_RES = null;
+function khNoteRes(iw, ih, sc){ if (!KH_RES || sc > KH_RES.sc) KH_RES = {sc, iw, ih}; }
+// A photo stretched past its real pixels looks soft on Instagram; say so while there's time to swap it.
+function khShowRes(){
+  const el = document.getElementById("khLowres"); if (!el) return;
+  const r = KH_RES, bad = r && r.sc > 1.25; el.hidden = !bad; if (!bad) return;
+  const need = Math.ceil(r.iw * r.sc / 100) * 100;
+  el.innerHTML = `<b>${r.sc > 2 ? "Blurry photo" : "Soft photo"}:</b> it’s ${r.iw}×${r.ih} px, stretched ${r.sc.toFixed(1)}× to fill this frame, so it will look pixelated. Use a photo at least ${need} px wide (a full-size image or video frame, not a screenshot of a thumbnail).`;
+}
 function renderPreview(){
   const c = $("#preview"), p = cur(), s = curSlide(); if (!c || !p || !s) return;
   const ctx = c.getContext("2d");
   drawSlide(ctx, p, s, state.slideIdx, p.slides.length);
   if (state.guides) drawGuides(ctx, p);
+  khShowRes();
   c.classList.toggle("draggable", hasPhoto(s));
 }
 function renderThumbs(){
@@ -1663,7 +1677,7 @@ function renderStage(){
       <div class="stagebox${state.zoom > 1 ? " zoomed" : ""}"><div class="canvas-wrap" style="--ar:${W/postH(p)};--z:${state.zoom}"><canvas id="preview" width="${W}" height="${postH(p)}" style="aspect-ratio:${W}/${postH(p)}" role="img" aria-label="Slide preview"></canvas></div></div>
       ${reel ? "<span></span>" : `<button class="nav" id="nextSlide" aria-label="Next slide"${state.slideIdx >= n-1 ? " disabled" : ""}>›</button>`}
     </div>
-    <div class="under"><div class="viewer-foot"><span>${reel ? `${FORMAT_NAME[p.format]} · ${W} × ${postH(p)}` : `Slide ${state.slideIdx+1} of ${n}`}</span><span>${hasPhoto(curSlide()||{}) ? "Drag the photo to move it" : "No photo on this slide"}</span></div>
+    <div class="under"><div class="kh-lowres" id="khLowres" role="status" hidden></div><div class="viewer-foot"><span>${reel ? `${FORMAT_NAME[p.format]} · ${W} × ${postH(p)}` : `Slide ${state.slideIdx+1} of ${n}`}</span><span>${hasPhoto(curSlide()||{}) ? "Drag the photo to move it" : "No photo on this slide"}</span></div>
     ${photoBar(curSlide())}</div>
     </div>
     ${reel ? "" : `<div class="col-handle" data-col="s" role="separator" aria-orientation="vertical" aria-label="Resize the slide strip" tabindex="0" title="Drag to resize · double-click to reset"></div>
@@ -2453,8 +2467,9 @@ async function addFiles(files, slot){
 /* ---------- export ---------- */
 async function renderToBlob(p, s, i){
   await fontsReady; await Promise.all([loadImg(s.img), loadImg(s.img2), loadImg(s.bgImg), loadImg(p.bgImg), ...(s.ov || []).map(o => loadImg(o.img))]);
-  const c = document.createElement("canvas"); c.width = W; c.height = postH(p);
-  drawSlide(c.getContext("2d"), p, s, i, p.slides.length);
+  const c = document.createElement("canvas"); c.width = W * KH_EXPORT_SCALE; c.height = postH(p) * KH_EXPORT_SCALE;
+  const cx = c.getContext("2d"); cx.scale(KH_EXPORT_SCALE, KH_EXPORT_SCALE);
+  drawSlide(cx, p, s, i, p.slides.length);
   return await new Promise((res, rej) => c.toBlob(b => b ? res(b) : rej(new Error("render")), "image/png"));
 }
 function fileBase(p){ return [p.date || "undated", p.day, p.format === "reel" ? "reel-cover" : p.format === "quote" ? "quote-card" : "", slug(p.title)].filter(Boolean).join("_"); }

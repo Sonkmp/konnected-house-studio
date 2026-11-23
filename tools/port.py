@@ -42,6 +42,8 @@ html[data-kh-simple] #preview, html[data-kh-simple] .title-input{pointer-events:
 .kh-post-panel .kpp-state[data-s="draft"] i{background:var(--muted)}
 .kh-post-panel .kpp-row{display:flex;gap:8px}
 .kh-post-panel .kpp-row .btn{flex:1;justify-content:center}
+.kh-lowres{margin:0 auto 10px;max-width:640px;padding:9px 13px;border-radius:10px;background:rgba(245,184,61,.12);border:1px solid rgba(245,184,61,.5);color:#F7D79B;font-size:12.5px;line-height:1.45;text-align:left}
+.kh-lowres b{color:#F5B83D}
 </style>
 """
 
@@ -359,6 +361,35 @@ window.__studio.engine = {
   }
 };
 ''')
+
+    # ---------- export quality ----------
+    # Downloads render at 2x (2160 px wide), like Canva/Figma "2x": text, logos and shapes stay sharp
+    # and good photos keep their detail. The on-screen preview stays 1080 px.
+    rep('loadImg(p.bgImg), ...(s.ov || []).map(o => loadImg(o.img))]);\n  const c = document.createElement("canvas"); c.width = W; c.height = postH(p);\n  drawSlide(c.getContext("2d"), p, s, i, p.slides.length);\n  return await new Promise((res, rej) => c.toBlob(b => b ? res(b) : rej(new Error("render")), "image/png"));',
+        'loadImg(p.bgImg), ...(s.ov || []).map(o => loadImg(o.img))]);\n  const c = document.createElement("canvas"); c.width = W * KH_EXPORT_SCALE; c.height = postH(p) * KH_EXPORT_SCALE;\n'
+        '  const cx = c.getContext("2d"); cx.scale(KH_EXPORT_SCALE, KH_EXPORT_SCALE);\n  drawSlide(cx, p, s, i, p.slides.length);\n  return await new Promise((res, rej) => c.toBlob(b => b ? res(b) : rej(new Error("render")), "image/png"));')
+    # the black-and-white fallback (browsers without canvas filters) reads pixels in device space
+    rep('      const X = Math.round(x), Y = Math.round(y), d = ctx.getImageData(X, Y, Math.round(w), Math.round(h)), a = d.data;',
+        '      const m = ctx.getTransform(), X = Math.round(m.a * x + m.e), Y = Math.round(m.d * y + m.f), d = ctx.getImageData(X, Y, Math.round(w * m.a), Math.round(h * m.d)), a = d.data;')
+    # low-resolution warning: how far each photo is stretched to fill its frame on the 1080 px preview
+    rep('  const sc = Math.max(w/iw, h/ih) * (zoom || 1);',
+        '  const sc = Math.max(w/iw, h/ih) * (zoom || 1);\n  if (ctx.canvas && ctx.canvas.id === "preview") khNoteRes(iw, ih, sc);')
+    rep('  TXT = null; if (ctx.canvas && ctx.canvas.id === "preview") HIT = {};',
+        '  TXT = null; if (ctx.canvas && ctx.canvas.id === "preview"){ HIT = {}; KH_RES = null; }')
+    rep('  if (state.guides) drawGuides(ctx, p);\n  c.classList.toggle("draggable", hasPhoto(s));',
+        '  if (state.guides) drawGuides(ctx, p);\n  khShowRes();\n  c.classList.toggle("draggable", hasPhoto(s));')
+    rep('<div class="under"><div class="viewer-foot">', '<div class="under"><div class="kh-lowres" id="khLowres" role="status" hidden></div><div class="viewer-foot">')
+    rep('function renderPreview(){', """const KH_EXPORT_SCALE = 2;
+let KH_RES = null;
+function khNoteRes(iw, ih, sc){ if (!KH_RES || sc > KH_RES.sc) KH_RES = {sc, iw, ih}; }
+// A photo stretched past its real pixels looks soft on Instagram; say so while there's time to swap it.
+function khShowRes(){
+  const el = document.getElementById("khLowres"); if (!el) return;
+  const r = KH_RES, bad = r && r.sc > 1.25; el.hidden = !bad; if (!bad) return;
+  const need = Math.ceil(r.iw * r.sc / 100) * 100;
+  el.innerHTML = `<b>${r.sc > 2 ? "Blurry photo" : "Soft photo"}:</b> it’s ${r.iw}×${r.ih} px, stretched ${r.sc.toFixed(1)}× to fill this frame, so it will look pixelated. Use a photo at least ${need} px wide (a full-size image or video frame, not a screenshot of a thumbnail).`;
+}
+function renderPreview(){""")
 
     out_dir = os.path.join(ROOT, "public", key)
     os.makedirs(out_dir, exist_ok=True)
