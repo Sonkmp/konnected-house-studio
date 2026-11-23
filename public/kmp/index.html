@@ -1224,12 +1224,15 @@ function drawQuoteCard(ctx, p, s, t){
     const lh = 88, lw = lh * LOGO.naturalWidth / LOGO.naturalHeight;
     ctx.save(); ctx.shadowColor = "rgba(0,0,0,.45)"; ctx.shadowBlur = 22; ctx.drawImage(LOGO, x0 + 36, y0 + 32, lw, lh); ctx.restore();
   }
+  // who said it, on the photo: "- Mama Cathy, married 34 years" becomes the name and the line under it
+  const who = (s.chip && String(s.chip.name || "").trim()) ? s.chip : khSplitWho(s.sub), onPhoto = !s.nameBelow && who.name;
+  if (onPhoto) khQuoteChip(ctx, s, t, x0, x1, y1, {chip: who, left: true, gap: 30});
   // the guest's words, then who said it, centred in the white space
   const left = s.align === "left", maxW = x1 - x0 - (left ? 20 : 40), items = [];
   const q = (s.headline || "").trim();
   if (q){ const it = headItem(s, /^["“'‘]/.test(q) ? q : `“${q}”`, 62 * sc, 700, maxW, 0); it.color = s.textColor || T.ink; items.push(it); }
   // "who said it" in a light weight (drawn plainly: the quote fonts force a bold minimum)
-  const subTxt = (s.sub || "").trim().replace(/[*=]/g, ""), subSize = 34 * sc, subFont = `400 ${subSize}px Poppins, system-ui, sans-serif`;
+  const subTxt = onPhoto ? "" : (s.sub || "").trim().replace(/[*=]/g, ""), subSize = 34 * sc, subFont = `400 ${subSize}px Poppins, system-ui, sans-serif`;
   ctx.font = subFont; const subLines = subTxt ? wrapPlain(ctx, subTxt, maxW) : [];
   const quoteH = items.length ? stackHeight(ctx, items) : 0, gap = 68, subH = subLines.length ? (quoteH ? gap : 0) + subLines.length * subSize * 1.25 : 0;
   if (quoteH || subH){
@@ -1300,7 +1303,8 @@ function inspQuote(p, s){
     <section class="grp"><h3>Quote card</h3>
       <p class="help">Write the guest's exact words. Quote marks are added for you. Select words and click Colour to highlight them.</p>
       ${field("The quote", "headline", s.headline, {area:true, rows:4, fmt:true})}
-      ${field("Who said it", "sub", s.sub, {ph:"- Guest name or @handle"})}
+      ${field("Who said it", "sub", s.sub, {ph:"- Guest name, what they're known for"})}
+      <label class="toggle"><input type="checkbox" data-k="nameBelow" ${s.nameBelow ? "checked" : ""}> Put it under the quote (off: on the photo, as name + line)</label>
       ${field("Episode pill", "badge", s.badge, {ph:"e.g. EP 12 or S01/E13"})}
       <div><span class="help">Footer</span> ${seg("footMode", [["cta", "Listen-on bar"], ["episode", "Episode line"]], s.footMode || "cta")}</div>
       ${(s.footMode || "cta") === "episode" ? field("Footer line", "tag", s.tag, {ph:"e.g. EP 12 · Before you say I do with ..."}) : ""}
@@ -1369,15 +1373,15 @@ function kmpIcons(ctx, x, cy, ink){
 }
 // The guest's name on the quote card photo: the verified mark, the name, and under it the line that says
 // why to listen ("$1B fund manager"). Two lines so long credibility titles still fit. Draggable ("chipA").
-function khQuoteChip(ctx, s, t, x0, x1, pb){
-  const c = s.chip || {}, name = String(c.name || "").trim(), title = String(c.title || "").trim(); if (!name) return;
+function khQuoteChip(ctx, s, t, x0, x1, pb, o = {}){
+  const c = o.chip || s.chip || {}, name = String(c.name || "").trim(), title = String(c.title || "").trim(); if (!name) return;
   const F = "Montserrat", maxW = x1 - x0 - 64, mark = 22, pad = 18, gap = 12;
   let ns = 26, ts = 19;
   const fit = () => { ctx.font = `700 ${ns}px ${F}, system-ui, sans-serif`; const nw = ctx.measureText(name).width;
     ctx.font = `500 ${ts}px ${F}, system-ui, sans-serif`; const tw = title ? ctx.measureText(title).width : 0; return Math.max(nw, tw); };
   let tw = fit(); while (pad + mark + gap + tw + pad > maxW && ts > 15){ ns -= 1; ts -= 1; tw = fit(); }
   const w = Math.min(maxW, pad + mark + gap + tw + pad + 4), h = title ? 80 : 56, r = 18;
-  const x = x1 - 30 - w, y = pb - 44 - h;
+  const x = o.left ? x0 + 30 : x1 - 30 - w, y = pb - (o.gap ?? 44) - h;
   khPush(ctx, s, "chipA", {x, y, w, h});
   shadowOn(ctx, false);
   // frosted glass: the photo behind the chip, blurred (shrunk and scaled back up, which works in every browser)
@@ -1404,6 +1408,10 @@ function khQuoteChip(ctx, s, t, x0, x1, pb){
   if (title){ ctx.fillStyle = "rgba(255,255,255,.88)"; ctx.font = `500 ${ts}px ${F}, system-ui, sans-serif`; ctx.fillText(title, tx, y + h - 19); }
   ctx.shadowBlur = 0; ctx.shadowColor = "transparent";
   ctx.restore();
+}
+function khSplitWho(sub){
+  const raw = String(sub || "").replace(/[*=]/g, "").trim().replace(/^[-–—]\s*/, ""); if (!raw) return {name: "", title: ""};
+  const m = raw.match(/^(.+?)(?:,\s+| [-–] )(.+)$/); return m ? {name: m[1].trim(), title: m[2].trim()} : {name: raw, title: ""};
 }
 function drawQuoteKmp(ctx, p, s, t){
   const T = kmpTpl(s), bg = s.fadeColor || T.frame, accent = s.boxColor || T.accent, sc = s.scale || 1;
