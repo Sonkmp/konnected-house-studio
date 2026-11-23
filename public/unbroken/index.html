@@ -1464,8 +1464,8 @@ function khQuoteChip(ctx, s, t, x0, x1, pb){
     ctx.drawImage(small, x - M, y - M, w + 2*M, h + 2*M); ctx.restore();
   } catch(e){ /* the plain tint below still reads */ }
   rr(ctx, x, y, w, h, r);
-  const g = ctx.createLinearGradient(x, y, x, y + h); g.addColorStop(0, "rgba(255,255,255,.22)"); g.addColorStop(1, "rgba(255,255,255,.08)");
-  ctx.fillStyle = "rgba(10,14,34,.30)"; ctx.fill(); ctx.fillStyle = g; ctx.fill();
+  const g = ctx.createLinearGradient(x, y, x, y + h); g.addColorStop(0, "rgba(255,255,255,.14)"); g.addColorStop(1, "rgba(255,255,255,.04)");
+  ctx.fillStyle = "rgba(8,11,28,.52)"; ctx.fill(); ctx.fillStyle = g; ctx.fill();   // darker glass for contrast
   ctx.strokeStyle = "rgba(255,255,255,.45)"; ctx.lineWidth = 1.4; ctx.stroke();
   const cx = x + pad + mark/2, cy = y + (title ? 29 : h/2);
   ctx.beginPath(); ctx.arc(cx, cy, mark/2, 0, Math.PI*2); ctx.fillStyle = t.box || t.accent; ctx.fill();
