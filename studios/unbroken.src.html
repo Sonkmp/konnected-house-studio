@@ -1266,10 +1266,14 @@ function drawQuoteCard(ctx, p, s, t){
   const quoteH = items.length ? stackHeight(ctx, items) : 0, gap = 68, subH = subLines.length ? (quoteH ? gap : 0) + subLines.length * subSize * 1.25 : 0;
   if (quoteH || subH){
     const top = y1 + 54, room = footTop - 60 - top, total = quoteH + subH, ty = total < room ? top + (room - total)/2 : top, tx = left ? x0 + 20 : W/2;
-    if (quoteH) drawStack(ctx, items, ty, left ? "left" : "center", tx, t, false);
-    ctx.font = subFont; ctx.fillStyle = T.sub; ctx.textAlign = left ? "left" : "center";
-    subLines.forEach((ln, k) => ctx.fillText(ln, tx, ty + quoteH + (quoteH ? gap : 0) + subSize * (.9 + k * 1.25)));
-    ctx.textAlign = "left";
+    const bx = left ? tx : tx - maxW/2;   // both blocks can be dragged to move them
+    if (quoteH){ khPush(ctx, s, "text", {x: bx, y: ty, w: maxW, h: quoteH}); drawStack(ctx, items, ty, left ? "left" : "center", tx, t, false); ctx.restore(); }
+    if (subLines.length){
+      khPush(ctx, s, "chipB", {x: bx, y: ty + quoteH + (quoteH ? gap : 0), w: maxW, h: subLines.length * subSize * 1.25});
+      ctx.font = subFont; ctx.fillStyle = T.sub; ctx.textAlign = left ? "left" : "center";
+      subLines.forEach((ln, k) => ctx.fillText(ln, tx, ty + quoteH + (quoteH ? gap : 0) + subSize * (.9 + k * 1.25)));
+      ctx.textAlign = "left"; ctx.restore();
+    }
   }
   // footer: the listen-on bar, or the episode line
   if ((s.footMode || "cta") === "cta"){ ubListenBar(ctx, footTop + 116, foot, pad); return; }
@@ -1332,6 +1336,10 @@ function inspQuote(p, s){
       ${field("Episode pill", "badge", s.badge, {ph:"e.g. EP 12 or S01/E13"})}
       <div><span class="help">Footer</span> ${seg("footMode", [["cta", "Listen-on bar"], ["episode", "Episode line"]], s.footMode || "cta")}</div>
       ${(s.footMode || "cta") === "episode" ? field("Footer line", "tag", s.tag, {ph:"e.g. EP 12 · Before you say I do with ..."}) : ""}
+    </section>
+    <section class="grp"><h3>Move</h3>
+      <p class="help">Drag the quote or the name on the card to move it.</p>
+      <div class="slide-actions"><button type="button" class="btn sm" data-act="place-reset">Reset positions</button></div>
     </section>
     <section class="grp"><h3>Photo</h3>
       ${picker(p, s, "img", "Guest photo")}
@@ -1435,14 +1443,16 @@ function drawQuoteKmp(ctx, p, s, t){
   if (q){
     let size = 60 * sc, it, h;
     do { it = headItem(s, q, size, 700, maxW, 0); it.color = s.textColor || T.ink; h = stackHeight(ctx, [it]); size -= 2; } while (h > room && size > 30);
-    drawStack(ctx, [it], y, left ? "left" : "center", tx, t, false); y += h;
+    khPush(ctx, s, "text", {x: left ? tx : tx - maxW/2, y, w: maxW, h});   // drag to move
+    drawStack(ctx, [it], y, left ? "left" : "center", tx, t, false); ctx.restore(); y += h;
   }
   if (nameH){
-    y += 48; ctx.fillStyle = accent; ctx.fillRect(left ? tx : tx - 140, y, 280, 5); y += 5 + 34;
+    y += 48; khPush(ctx, s, "chipB", {x: left ? tx : tx - maxW/2, y, w: maxW, h: 5 + 34 + nameH});   // drag to move
+    ctx.fillStyle = accent; ctx.fillRect(left ? tx : tx - 140, y, 280, 5); y += 5 + 34;
     ctx.textAlign = left ? "left" : "center";
     if (s.chip.name){ ctx.fillStyle = s.textColor || T.ink; ctx.font = "400 34px Poppins, system-ui, sans-serif"; ctx.fillText(s.chip.name, tx, y + 30); y += 44; }
     if (s.chip.title){ ctx.fillStyle = T.sub; ctx.font = "italic 400 28px Poppins, system-ui, sans-serif"; ctx.fillText(s.chip.title, tx, y + 26); }
-    ctx.textAlign = "left";
+    ctx.textAlign = "left"; ctx.restore();
   }
   // under the card: logo | LISTEN ON + icons on the left, handle on the right
   const fy = (y1 + H) / 2;
@@ -1469,6 +1479,10 @@ function inspQuoteKmp(p, s){
       ${field("The quote", "headline", s.headline, {area:true, rows:4, fmt:true})}
       <div class="row2">${field("Name", "chip.name", s.chip.name, {ph:"Guest name"})}${field("Title", "chip.title", s.chip.title, {ph:"What they do"})}</div>
       ${field("Handle", "handle", s.handle, {ph:"@konnectedminds"})}
+    </section>
+    <section class="grp"><h3>Move</h3>
+      <p class="help">Drag the quote or the name on the card to move it.</p>
+      <div class="slide-actions"><button type="button" class="btn sm" data-act="place-reset">Reset positions</button></div>
     </section>
     <section class="grp"><h3>Photo</h3>
       ${picker(p, s, "img", "Guest photo")}
